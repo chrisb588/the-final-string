@@ -267,16 +267,45 @@ class GameDemo:
     
     def check_nearby_interactables(self):
         """Check for nearby interactables and show interaction hints"""
-        interaction = interactable_manager.check_interactions(self.player_x, self.player_y)
-        if interaction:
-            # Could show interaction prompt here
-            pass
+        # Convert player position to tile coordinates
+        player_tile_x = int(self.player_x // 16)
+        player_tile_y = int(self.player_y // 16)
+        
+        # Check adjacent tiles for interactables
+        adjacent_positions = [
+            (player_tile_x, player_tile_y),      # Current tile
+            (player_tile_x - 1, player_tile_y),  # Left
+            (player_tile_x + 1, player_tile_y),  # Right
+            (player_tile_x, player_tile_y - 1),  # Up
+            (player_tile_x, player_tile_y + 1),  # Down
+        ]
+        
+        for tile_x, tile_y in adjacent_positions:
+            obj = interactable_manager.get_interactable_at(tile_x, tile_y)
+            if obj:
+                # Could show interaction prompt here
+                break
     
     def interact_with_objects(self):
         """Interact with nearby objects"""
-        result = interactable_manager.interact_with_nearest(self.player_x, self.player_y)
-        if result:
-            self.handle_interaction(result)
+        # Convert player position to tile coordinates
+        player_tile_x = int(self.player_x // 16)
+        player_tile_y = int(self.player_y // 16)
+        
+        # Check adjacent tiles for interactables
+        adjacent_positions = [
+            (player_tile_x, player_tile_y),      # Current tile
+            (player_tile_x - 1, player_tile_y),  # Left
+            (player_tile_x + 1, player_tile_y),  # Right
+            (player_tile_x, player_tile_y - 1),  # Up
+            (player_tile_x, player_tile_y + 1),  # Down
+        ]
+        
+        for tile_x, tile_y in adjacent_positions:
+            result = interactable_manager.interact_at(tile_x, tile_y, self.player_x, self.player_y)
+            if result.get("type") != "none":
+                self.handle_interaction(result)
+                break
     
     def handle_interaction(self, result: Dict[str, Any]):
         """Handle interaction results"""
