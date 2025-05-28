@@ -18,10 +18,36 @@ class TileSprite(pygame.sprite.Sprite):
         # Store original position for camera calculations
         self._original_rect = self.rect.copy()
     
-    def update_screen_position(self, camera_x: int, camera_y: int):
-        """Update sprite position based on camera offset"""
-        self.rect.x = self._original_rect.x - camera_x
-        self.rect.y = self._original_rect.y - camera_y
+    def update_screen_position(self, camera_x: int, camera_y: int, zoom: float = 1.0):
+        """Update sprite position based on camera offset and zoom"""
+        # Calculate position relative to camera
+        world_x = self._original_rect.x - camera_x
+        world_y = self._original_rect.y - camera_y
+        
+        # Apply zoom scaling
+        self.rect.x = int(world_x * zoom)
+        self.rect.y = int(world_y * zoom)
+        
+        # Scale the sprite size if zoomed
+        if zoom != 1.0:
+            original_size = self._original_rect.size
+            new_width = int(original_size[0] * zoom)
+            new_height = int(original_size[1] * zoom)
+            self.rect.width = new_width
+            self.rect.height = new_height
+            
+            # Scale the image
+            if hasattr(self, '_original_image'):
+                self.image = pygame.transform.scale(self._original_image, (new_width, new_height))
+            else:
+                # Store original image for future scaling
+                self._original_image = self.image.copy()
+                self.image = pygame.transform.scale(self._original_image, (new_width, new_height))
+        else:
+            # Reset to original size and image
+            self.rect.size = self._original_rect.size
+            if hasattr(self, '_original_image'):
+                self.image = self._original_image.copy()
 
 class LayeredTileRenderer:
     """Enhanced tile renderer using pygame's LayeredUpdates for proper layering"""
@@ -113,7 +139,7 @@ class LayeredTileRenderer:
         return self.layer_depths.get(layer_name, 50)  # Default middle depth
 
 class Camera:
-    """Camera system for following targets and managing viewport"""
+    """Camera system for following targets and managing viewport (Stardew Valley style)"""
     
     def __init__(self, screen_width: int, screen_height: int):
         self.x = 0
@@ -123,33 +149,83 @@ class Camera:
         self.target_x = 0
         self.target_y = 0
         self.follow_speed = 0.1  # For smooth camera following
+        
+        # Zoom functionality
+        self.zoom = 2.0  # Current zoom level (1.0 = normal, 2.0 = 2x zoom, 0.5 = zoomed out)
+        self.min_zoom = 0.25  # Minimum zoom (zoomed out)
+        self.max_zoom = 4.0   # Maximum zoom (zoomed in)
+        self.zoom_speed = 0.1  # How fast zoom changes
+        
+        # Camera bounds for keeping player centered (adjusted for zoom)
+        self.half_screen_width = screen_width // 2
+        self.half_screen_height = screen_height // 2
     
     def update(self, target_x: int, target_y: int, level_width: int, level_height: int, smooth: bool = False):
-        """Update camera position to follow target"""
+        """Update camera position to follow target (Stardew Valley style)"""
+        # Get effective screen size accounting for zoom
+        effective_width, effective_height = self.get_effective_screen_size()
+        half_effective_width = effective_width // 2
+        half_effective_height = effective_height // 2
+        
+        # Calculate desired camera position to center the player
+        desired_camera_x = target_x - half_effective_width
+        desired_camera_y = target_y - half_effective_height
+        
+        # Calculate camera bounds based on level size
+        # If level is smaller than effective screen, center the level
+        if level_width <= effective_width:
+            # Center the level horizontally
+            camera_x = -(effective_width - level_width) // 2
+        else:
+            # Normal clamping for levels larger than effective screen
+            camera_x = max(0, min(desired_camera_x, level_width - effective_width))
+        
+        if level_height <= effective_height:
+            # Center the level vertically
+            camera_y = -(effective_height - level_height) // 2
+        else:
+            # Normal clamping for levels larger than effective screen
+            camera_y = max(0, min(desired_camera_y, level_height - effective_height))
+        
         if smooth:
             # Smooth camera following
-            self.target_x = target_x - self.screen_width // 2
-            self.target_y = target_y - self.screen_height // 2
+            self.target_x = camera_x
+            self.target_y = camera_y
             
             # Interpolate towards target
             self.x += (self.target_x - self.x) * self.follow_speed
             self.y += (self.target_y - self.y) * self.follow_speed
         else:
             # Instant camera following
-            self.x = target_x - self.screen_width // 2
-            self.y = target_y - self.screen_height // 2
-        
-        # Clamp camera to level bounds
-        self.x = max(0, min(self.x, level_width - self.screen_width))
-        self.y = max(0, min(self.y, level_height - self.screen_height))
+            self.x = camera_x
+            self.y = camera_y
     
     def apply(self, x: int, y: int) -> Tuple[int, int]:
         """Apply camera offset to world coordinates"""
         return (x - int(self.x), y - int(self.y))
     
+    def zoom_in(self):
+        """Zoom in (increase zoom level)"""
+        self.zoom = min(self.max_zoom, self.zoom + self.zoom_speed)
+    
+    def zoom_out(self):
+        """Zoom out (decrease zoom level)"""
+        self.zoom = max(self.min_zoom, self.zoom - self.zoom_speed)
+    
+    def set_zoom(self, zoom_level: float):
+        """Set zoom to a specific level"""
+        self.zoom = max(self.min_zoom, min(self.max_zoom, zoom_level))
+    
+    def get_effective_screen_size(self) -> Tuple[int, int]:
+        """Get the effective screen size in world coordinates (accounting for zoom)"""
+        effective_width = int(self.screen_width / self.zoom)
+        effective_height = int(self.screen_height / self.zoom)
+        return effective_width, effective_height
+    
     def get_visible_rect(self) -> pygame.Rect:
         """Get the visible area rectangle in world coordinates"""
-        return pygame.Rect(int(self.x), int(self.y), self.screen_width, self.screen_height)
+        effective_width, effective_height = self.get_effective_screen_size()
+        return pygame.Rect(int(self.x), int(self.y), effective_width, effective_height)
 
 class LayeredLevelManager:
     """Enhanced level manager using LayeredUpdates for proper tile layering"""
@@ -208,7 +284,14 @@ class LayeredLevelManager:
             self.current_level_index = self.available_levels.index(level_name)
         
         print(f"Level loaded: {level_name} ({level.map_width}x{level.map_height}) - {len(self.tile_sprites)} sprites created")
+        print(f"Starting point: {level.get_starting_point()} (pixels), {level.get_starting_point_tiles()} (tiles)")
         return True
+    
+    def get_level_starting_point(self) -> Tuple[int, int]:
+        """Get the starting point for the current level in pixel coordinates"""
+        if self.current_level:
+            return self.current_level.get_starting_point()
+        return (100, 100)  # Default fallback
     
     def _create_tile_sprites(self):
         """Create TileSprite objects for all tiles in all layers"""
@@ -287,27 +370,29 @@ class LayeredLevelManager:
         
         # Update sprite positions based on camera
         camera_x, camera_y = int(self.camera.x), int(self.camera.y)
+        zoom = self.camera.zoom
         
         # Clear visible sprites group
         self.visible_sprites.empty()
         
         if self.cull_offscreen_sprites:
-            # Only update sprites that are potentially visible
+            # Only update sprites that are potentially visible (accounting for zoom)
+            effective_width, effective_height = self.camera.get_effective_screen_size()
             visible_rect = pygame.Rect(
                 camera_x - self.sprite_culling_margin,
                 camera_y - self.sprite_culling_margin,
-                self.screen_width + 2 * self.sprite_culling_margin,
-                self.screen_height + 2 * self.sprite_culling_margin
+                effective_width + 2 * self.sprite_culling_margin,
+                effective_height + 2 * self.sprite_culling_margin
             )
             
             for sprite in self.tile_sprites:
                 if sprite._original_rect.colliderect(visible_rect):
-                    sprite.update_screen_position(camera_x, camera_y)
+                    sprite.update_screen_position(camera_x, camera_y, zoom)
                     self.visible_sprites.add(sprite)
         else:
             # Update all sprites
             for sprite in self.tile_sprites:
-                sprite.update_screen_position(camera_x, camera_y)
+                sprite.update_screen_position(camera_x, camera_y, zoom)
                 self.visible_sprites.add(sprite)
     
     def render_level(self, debug_info: bool = False):
@@ -352,6 +437,7 @@ class LayeredLevelManager:
             f"Total Sprites: {len(self.tile_sprites)}",
             f"Visible Sprites: {len(self.visible_sprites)}",
             f"Camera: ({int(self.camera.x)}, {int(self.camera.y)})",
+            f"Zoom: {self.camera.zoom:.2f}x",
             f"Layers: {len(self.current_level.layers)}"
         ]
         

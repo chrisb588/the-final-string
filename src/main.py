@@ -1,6 +1,10 @@
 import pygame
 import sys
+from typing import Dict, Any
 from levels.manager import LayeredLevelManager
+from game_state import game_state
+from entities.interactables import interactable_manager
+from ui.password_ui import PasswordUI, MessageUI, RulesDisplayUI
 
 class GameDemo:
     """Demo showing the layered tileset renderer in action"""
@@ -35,9 +39,20 @@ class GameDemo:
         self.smooth_camera = True
         self.paused = False
         
+        # UI components
+        self.password_ui = PasswordUI(self.screen)
+        self.message_ui = MessageUI(self.screen)
+        self.rules_ui = RulesDisplayUI(self.screen)
+        
+        # Interaction callback not needed - handled directly in interact_with_objects
+        
         # Try to load first level
         if not self.level_manager.load_first_level():
             print("No levels found! Make sure your level files are in the correct directory.")
+        else:
+            # Set player to starting point of the level
+            self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+            self.load_level_interactables()
     
     def handle_events(self):
         """Handle input events"""
@@ -45,19 +60,32 @@ class GameDemo:
             if event.type == pygame.QUIT:
                 return False
             
+            # Let password UI handle events first
+            if self.password_ui.handle_event(event):
+                continue
+            
             elif event.type == pygame.KEYDOWN:
                 # Level navigation
                 if event.key == pygame.K_n or event.key == pygame.K_RIGHT:
-                    self.level_manager.load_next_level()
+                    if self.level_manager.load_next_level():
+                        # Move player to starting point of new level
+                        self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+                        self.load_level_interactables()
                 
                 elif event.key == pygame.K_p or event.key == pygame.K_LEFT:
-                    self.level_manager.load_previous_level()
+                    if self.level_manager.load_previous_level():
+                        # Move player to starting point of new level
+                        self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+                        self.load_level_interactables()
                 
                 elif event.key == pygame.K_r:
                     # Reload current level
                     current_name = self.level_manager.current_level_name
                     if current_name:
-                        self.level_manager.load_level(current_name)
+                        if self.level_manager.load_level(current_name):
+                            # Move player to starting point
+                            self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+                            self.load_level_interactables()
                 
                 # Debug toggles
                 elif event.key == pygame.K_F1:
@@ -68,6 +96,19 @@ class GameDemo:
                 
                 elif event.key == pygame.K_SPACE:
                     self.paused = not self.paused
+                
+                # Zoom controls
+                elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
+                    # Zoom in
+                    self.level_manager.camera.zoom_in()
+                
+                elif event.key == pygame.K_MINUS:
+                    # Zoom out
+                    self.level_manager.camera.zoom_out()
+                
+                elif event.key == pygame.K_0:
+                    # Reset zoom to normal
+                    self.level_manager.camera.set_zoom(1.0)
                 
                 # Layer visibility toggles (for testing)
                 elif event.key == pygame.K_1:
@@ -81,6 +122,16 @@ class GameDemo:
                 elif event.key == pygame.K_3:
                     # Toggle objects layer
                     self._toggle_layer("objects-collision")
+                
+                # Interaction
+                elif event.key == pygame.K_e:
+                    # Interact with objects
+                    self.interact_with_objects()
+                
+                elif event.key == pygame.K_c:
+                    # Clear rules for testing
+                    game_state.clear_rules_for_testing()
+                    self.message_ui.show_message("Rules cleared for testing!", 2000)
         
         return True
     
@@ -116,6 +167,12 @@ class GameDemo:
             self.player_x, self.player_y, 
             smooth=self.smooth_camera
         )
+        
+        # Update UI components
+        self.message_ui.update()
+        
+        # Check for nearby interactables
+        self.check_nearby_interactables()
     
     def render(self):
         """Render the game"""
@@ -125,22 +182,52 @@ class GameDemo:
         # Render level with layered sprites
         self.level_manager.render_level(debug_info=self.show_debug)
         
-        # Draw player (simple representation)
+        # Draw player (simple representation) - account for zoom
         player_screen_x, player_screen_y = self.level_manager.camera.apply(
             self.player_x, self.player_y
         )
+        # Scale player size with zoom
+        zoom = self.level_manager.camera.zoom
+        player_radius = int(8 * zoom)
         pygame.draw.circle(
             self.screen, 
             (255, 100, 100), 
-            (int(player_screen_x), int(player_screen_y)), 
-            8
+            (int(player_screen_x * zoom), int(player_screen_y * zoom)), 
+            player_radius
         )
+        
+        # Draw zoom level indicator
+        self._draw_zoom_indicator()
         
         # Draw control instructions
         self._draw_instructions()
         
+        # Render UI components
+        self.rules_ui.render(game_state.get_rules())
+        self.message_ui.render()
+        self.password_ui.render()
+        
         # Update display
         pygame.display.flip()
+    
+    def _draw_zoom_indicator(self):
+        """Draw zoom level indicator in top-right corner"""
+        font = pygame.font.Font(None, 32)
+        zoom = self.level_manager.camera.zoom
+        zoom_text = f"Zoom: {zoom:.1f}x"
+        
+        # Render text with outline for visibility
+        text_surface = font.render(zoom_text, True, (255, 255, 255))
+        outline_surface = font.render(zoom_text, True, (0, 0, 0))
+        
+        # Position in top-right corner
+        text_width = text_surface.get_width()
+        x_pos = self.screen_width - text_width - 20
+        y_pos = 20
+        
+        # Draw outline and text
+        self.screen.blit(outline_surface, (x_pos + 1, y_pos + 1))
+        self.screen.blit(text_surface, (x_pos, y_pos))
     
     def _draw_instructions(self):
         """Draw control instructions on screen"""
@@ -150,10 +237,15 @@ class GameDemo:
             "N/Right: Next level",
             "P/Left: Previous level", 
             "R: Reload level",
+            "+/=: Zoom in",
+            "-: Zoom out", 
+            "0: Reset zoom",
             "F1: Toggle debug info",
             "F2: Toggle smooth camera",
             "Space: Pause",
             "1-3: Toggle layers (demo)",
+            "E: Interact with objects",
+            "C: Clear rules for testing",
             "ESC: Quit"
         ]
         
@@ -167,6 +259,59 @@ class GameDemo:
             self.screen.blit(outline_surface, (11, y_pos + 1))
             self.screen.blit(text_surface, (10, y_pos))
             y_pos += 22
+    
+    def load_level_interactables(self):
+        """Load interactables for the current level"""
+        if self.level_manager.current_level:
+            interactable_manager.load_from_level_data(self.level_manager.current_level.raw_data)
+    
+    def check_nearby_interactables(self):
+        """Check for nearby interactables and show interaction hints"""
+        interaction = interactable_manager.check_interactions(self.player_x, self.player_y)
+        if interaction:
+            # Could show interaction prompt here
+            pass
+    
+    def interact_with_objects(self):
+        """Interact with nearby objects"""
+        result = interactable_manager.interact_with_nearest(self.player_x, self.player_y)
+        if result:
+            self.handle_interaction(result)
+    
+    def handle_interaction(self, result: Dict[str, Any]):
+        """Handle interaction results"""
+        interaction_type = result.get("type", "none")
+        
+        if interaction_type == "note_collected":
+            message = result.get("message", "Note collected!")
+            self.message_ui.show_message(message, 3000)
+            
+        elif interaction_type == "note_already_collected":
+            message = result.get("message", "Already read this note.")
+            self.message_ui.show_message(message, 2000)
+            
+        elif interaction_type == "door_locked":
+            message = result.get("message", "Door is locked.")
+            self.message_ui.show_message(message, 3000)
+            
+        elif interaction_type == "door_password_prompt":
+            # Show password UI
+            rules = result.get("rules", [])
+            collected_rules = result.get("collected_rules", [])
+            door = result.get("door")
+            self.password_ui.show(rules, door, self.handle_password_result, collected_rules)
+            
+        elif interaction_type == "door_open":
+            message = result.get("message", "Door is open.")
+            self.message_ui.show_message(message, 2000)
+    
+    def handle_password_result(self, result: Dict[str, Any]):
+        """Handle password attempt results"""
+        if result.get("success", False):
+            self.message_ui.show_message("Door opened successfully!", 3000)
+        else:
+            message = result.get("message", "Password incorrect.")
+            self.message_ui.show_message(message, 3000)
     
     def run(self):
         """Main game loop"""

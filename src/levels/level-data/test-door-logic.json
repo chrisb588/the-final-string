@@ -1,0 +1,76 @@
+{
+  "tileSize": 16,
+  "mapWidth": 25,
+  "mapHeight": 20,
+  "startingPoint": {
+    "x": 2,
+    "y": 18
+  },
+  "metadata": {
+    "description": "Test level for door logic with password rules",
+    "author": "Game Developer",
+    "rules": [
+      "Password must be at least 8 characters long",
+      "Password must contain at least one number",
+      "Password must contain at least one uppercase letter",
+      "Password must end with a special character (!@#$%)"
+    ]
+  },
+  "layers": [
+    {
+      "name": "walls",
+      "tiles": [
+        {"id": "1", "x": 0, "y": 1}, {"id": "1", "x": 1, "y": 1}, {"id": "1", "x": 2, "y": 1}, {"id": "1", "x": 3, "y": 1}, {"id": "1", "x": 4, "y": 1},
+        {"id": "1", "x": 5, "y": 1}, {"id": "1", "x": 6, "y": 1}, {"id": "1", "x": 7, "y": 1}, {"id": "1", "x": 8, "y": 1}, {"id": "1", "x": 9, "y": 1},
+        {"id": "1", "x": 10, "y": 1}, {"id": "1", "x": 11, "y": 1}, {"id": "1", "x": 13, "y": 1}, {"id": "1", "x": 14, "y": 1}, {"id": "1", "x": 15, "y": 1},
+        {"id": "1", "x": 16, "y": 1}, {"id": "1", "x": 17, "y": 1}, {"id": "1", "x": 18, "y": 1}, {"id": "1", "x": 19, "y": 1}, {"id": "1", "x": 20, "y": 1},
+        {"id": "1", "x": 21, "y": 1}, {"id": "1", "x": 22, "y": 1}, {"id": "1", "x": 23, "y": 1}, {"id": "1", "x": 24, "y": 1},
+        {"id": "1", "x": 0, "y": 2}, {"id": "1", "x": 24, "y": 2},
+        {"id": "1", "x": 0, "y": 3}, {"id": "1", "x": 24, "y": 3},
+        {"id": "1", "x": 0, "y": 4}, {"id": "1", "x": 24, "y": 4},
+        {"id": "1", "x": 0, "y": 5}, {"id": "1", "x": 24, "y": 5},
+        {"id": "1", "x": 0, "y": 6}, {"id": "1", "x": 24, "y": 6},
+        {"id": "1", "x": 0, "y": 7}, {"id": "1", "x": 24, "y": 7},
+        {"id": "1", "x": 0, "y": 8}, {"id": "1", "x": 24, "y": 8},
+        {"id": "1", "x": 0, "y": 9}, {"id": "1", "x": 24, "y": 9},
+        {"id": "1", "x": 0, "y": 10}, {"id": "1", "x": 24, "y": 10},
+        {"id": "1", "x": 0, "y": 11}, {"id": "1", "x": 24, "y": 11},
+        {"id": "1", "x": 0, "y": 12}, {"id": "1", "x": 24, "y": 12},
+        {"id": "1", "x": 0, "y": 13}, {"id": "1", "x": 24, "y": 13},
+        {"id": "1", "x": 0, "y": 14}, {"id": "1", "x": 24, "y": 14},
+        {"id": "1", "x": 0, "y": 15}, {"id": "1", "x": 24, "y": 15},
+        {"id": "1", "x": 0, "y": 16}, {"id": "1", "x": 24, "y": 16},
+        {"id": "1", "x": 0, "y": 17}, {"id": "1", "x": 24, "y": 17},
+        {"id": "1", "x": 0, "y": 18}, {"id": "1", "x": 24, "y": 18},
+        {"id": "1", "x": 0, "y": 19}, {"id": "1", "x": 1, "y": 19}, {"id": "1", "x": 3, "y": 19}, {"id": "1", "x": 4, "y": 19},
+        {"id": "1", "x": 5, "y": 19}, {"id": "1", "x": 6, "y": 19}, {"id": "1", "x": 7, "y": 19}, {"id": "1", "x": 8, "y": 19},
+        {"id": "1", "x": 9, "y": 19}, {"id": "1", "x": 10, "y": 19}, {"id": "1", "x": 11, "y": 19}, {"id": "1", "x": 12, "y": 19},
+        {"id": "1", "x": 13, "y": 19}, {"id": "1", "x": 14, "y": 19}, {"id": "1", "x": 15, "y": 19}, {"id": "1", "x": 16, "y": 19},
+        {"id": "1", "x": 17, "y": 19}, {"id": "1", "x": 18, "y": 19}, {"id": "1", "x": 19, "y": 19}, {"id": "1", "x": 20, "y": 19},
+        {"id": "1", "x": 21, "y": 19}, {"id": "1", "x": 22, "y": 19}, {"id": "1", "x": 23, "y": 19}, {"id": "1", "x": 24, "y": 19}
+      ],
+      "collider": true
+    },
+    {
+      "name": "interactables",
+      "tiles": [
+        {"id": "25", "x": 5, "y": 15, "type": "note", "rule": "Password must be at least 8 characters long"},
+        {"id": "25", "x": 20, "y": 5, "type": "note", "rule": "Password must contain at least one number"},
+        {"id": "25", "x": 8, "y": 8, "type": "note", "rule": "Password must contain at least one uppercase letter"},
+        {"id": "25", "x": 15, "y": 12, "type": "note", "rule": "Password must end with a special character (!@#$%)"},
+        {"id": "13", "x": 12, "y": 1, "type": "door", "requires_rules": 4}
+      ],
+      "collider": true
+    },
+    {
+      "name": "objects-collision",
+      "tiles": [
+        {"id": "26", "x": 10, "y": 10},
+        {"id": "27", "x": 15, "y": 8},
+        {"id": "28", "x": 6, "y": 6},
+        {"id": "29", "x": 18, "y": 14}
+      ],
+      "collider": true
+    }
+  ]
+} 
