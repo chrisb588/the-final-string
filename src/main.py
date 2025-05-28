@@ -197,7 +197,7 @@ class GameDemo:
         pygame.quit()
         sys.exit()
 
-def main():
+def game_state():
     """Entry point"""
     try:
         demo = GameDemo()
@@ -208,4 +208,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    game_state()
