@@ -2,7 +2,7 @@ from PIL import Image
 import sys
 import os
 
-def upscale_spritesheet(input_path, output_path, scale_factor=3):
+def upscale_spritesheet(input_path, output_path, scale_factor=2):
     img = Image.open(input_path)
     width, height = img.size
 
