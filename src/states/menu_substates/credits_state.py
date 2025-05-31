@@ -20,15 +20,14 @@ class CreditsState(BaseMenuState):
         super().__init__(screen, terminal, crt_filter)
         self.credits_lines = []
         self.current_page = 0
-        self.lines_per_page = 15  # Adjust based on your screen size
+        self.lines_per_page = 15
         self.load_credits()
         
     def load_credits(self):
         """Load credits from file"""
         try:
-            # Get the main directory (go up from src/menu_states to main/)
             current_file = Path(__file__)
-            main_dir = current_file.parent.parent.parent.parent  # menu_states -> src -> main
+            main_dir = current_file.parent.parent.parent.parent
             credits_file = main_dir / "credits.txt"
             
             with open(credits_file, "r") as f:
