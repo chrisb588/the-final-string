@@ -1,5 +1,6 @@
 import pygame
 import sys
+import math
 from typing import Dict, Any, Set, Tuple, List
 from levels.manager import LayeredLevelManager
 from game_state import game_state
@@ -399,6 +400,231 @@ class GameDemo:
         # This is a simple implementation - you'd want to track layer states properly
         print(f"Layer toggle for '{layer_name}' - implement layer visibility tracking as needed")
     
+    def _find_doors_in_level(self) -> List[Tuple[int, int]]:
+        """Find all door positions in the current level"""
+        doors = []
+        for obj in interactable_manager.interactables:
+            if obj.__class__.__name__ == 'Door':
+                doors.append((obj.x, obj.y))
+        return doors
+    
+    def _get_nearest_door_position(self) -> Tuple[int, int]:
+        """Get the position of the nearest door to the player"""
+        doors = self._find_doors_in_level()
+        if not doors:
+            return None
+        
+        player_tile_x = int(self.player_x // 16)
+        player_tile_y = int(self.player_y // 16)
+        
+        # Find the nearest door
+        nearest_door = None
+        nearest_distance = float('inf')
+        
+        for door_x, door_y in doors:
+            # Calculate distance to door
+            dx = door_x - player_tile_x
+            dy = door_y - player_tile_y
+            distance = math.sqrt(dx * dx + dy * dy)
+            
+            if distance < nearest_distance:
+                nearest_distance = distance
+                nearest_door = (door_x, door_y)
+        
+        return nearest_door
+    
+    def _calculate_direction_to_door(self, door_pos: Tuple[int, int]) -> float:
+        """Calculate the angle (in radians) from player to door"""
+        if not door_pos:
+            return 0
+        
+        player_tile_x = int(self.player_x // 16)
+        player_tile_y = int(self.player_y // 16)
+        
+        door_x, door_y = door_pos
+        
+        # Calculate direction vector
+        dx = door_x - player_tile_x
+        dy = door_y - player_tile_y
+        
+        # Calculate angle (atan2 returns angle in radians)
+        # Note: In pygame, Y axis is flipped (positive Y goes down)
+        angle = math.atan2(dy, dx)
+        
+        return angle
+    
+    def _draw_compass(self):
+        """Draw a 2D pixelated circular compass with decorations"""
+        compass_area_size = 64  # Overall square area the compass will occupy
+        pixel_scale = 2         # Each 'pixel' of our art will be pixel_scale x pixel_scale screen pixels
+        
+        base_compass_x = self.screen_width - compass_area_size - 15 # Adjusted for new size
+        base_compass_y = 85  # Below zoom indicator, adjusted
+        if self.show_speed_debug:
+            base_compass_y += 35 # Adjusted
+
+        center_x = base_compass_x + compass_area_size // 2
+        center_y = base_compass_y + compass_area_size // 2
+
+        # --- Draw Pixelated Circular Compass Body ---
+        radius_pixels = 15  # Radius of the circle in 'pixel' units
+        
+        # Colors
+        body_color_dark = (30, 30, 30)    # Dark core
+        body_color_mid = (50, 50, 50)      # Main body
+        body_color_light = (80, 80, 80)    # Highlight/border accent
+        border_color = (120, 120, 120)     # Outer border
+
+        # Draw the circle pixel by pixel
+        for y_offset_px in range(-radius_pixels -1, radius_pixels + 2):
+            for x_offset_px in range(-radius_pixels -1, radius_pixels + 2):
+                dist_sq = x_offset_px**2 + y_offset_px**2
+                px = center_x + x_offset_px * pixel_scale
+                py = center_y + y_offset_px * pixel_scale
+
+                # Outer Border (slightly thicker circle)
+                if radius_pixels**2 <= dist_sq < (radius_pixels + 1.5)**2:
+                    pygame.draw.rect(self.screen, border_color, (px, py, pixel_scale, pixel_scale))
+                # Main Body (filled circle)
+                elif dist_sq < radius_pixels**2:
+                    # Basic shading: darker towards top-left, lighter bottom-right (subtle)
+                    if x_offset_px < -radius_pixels * 0.5 and y_offset_px < -radius_pixels * 0.5:
+                        color_to_use = body_color_dark
+                    elif x_offset_px > radius_pixels * 0.5 and y_offset_px > radius_pixels * 0.5:
+                        color_to_use = body_color_light
+                    else:
+                        color_to_use = body_color_mid
+                    pygame.draw.rect(self.screen, color_to_use, (px, py, pixel_scale, pixel_scale))
+        
+        # Decorative inner ring/crosshairs (optional)
+        inner_ring_color = (70, 70, 70)
+        for i_px in range(-radius_pixels, radius_pixels + 1):
+            # Horizontal line
+            if abs(i_px * pixel_scale) < radius_pixels * pixel_scale * 0.7:
+                 pygame.draw.rect(self.screen, inner_ring_color, (center_x + i_px * pixel_scale - pixel_scale//2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
+            # Vertical line
+            if abs(i_px * pixel_scale) < radius_pixels * pixel_scale * 0.7:
+                 pygame.draw.rect(self.screen, inner_ring_color, (center_x - pixel_scale//2, center_y + i_px * pixel_scale - pixel_scale//2, pixel_scale, pixel_scale))
+
+
+        nearest_door = self._get_nearest_door_position()
+
+        if nearest_door:
+            angle = self._calculate_direction_to_door(nearest_door)
+            needle_color_main = (255, 50, 50) # Bright Red
+            needle_color_accent = (200, 0, 0) # Darker Red for accent/shadow
+            
+            # --- Updated Needle Tail Colors ---
+            needle_tail_color_main = (220, 220, 220)  # Main light grey/white
+            needle_tail_color_accent = (170, 170, 170) # Slightly darker grey for accent
+            
+            needle_front_len_px = 10 # in 'pixels'
+            needle_tail_len_px = 6 # Slightly longer tail for better balance
+
+            # Draw main part (front) - thicker
+            for i in range(needle_front_len_px):
+                dist = i * pixel_scale
+                px = center_x + math.cos(angle) * dist
+                py = center_y + math.sin(angle) * dist
+                pygame.draw.rect(self.screen, needle_color_accent, (px - pixel_scale + pixel_scale//2, py - pixel_scale + pixel_scale//2, pixel_scale*2, pixel_scale*2))
+                pygame.draw.rect(self.screen, needle_color_main, (px - pixel_scale, py - pixel_scale, pixel_scale*2, pixel_scale*2))
+
+            # Arrowhead (more defined)
+            tip_dist = needle_front_len_px * pixel_scale
+            tip_x = center_x + math.cos(angle) * tip_dist
+            tip_y = center_y + math.sin(angle) * tip_dist
+
+            arrowhead_size_px = 3 
+            for i_arrow in range(-arrowhead_size_px // 2 +1 , arrowhead_size_px // 2 + 2):
+                offset_angle = angle + math.pi / 2 
+                offset_dist = i_arrow * pixel_scale
+                base_ax = center_x + math.cos(angle) * (tip_dist - 2*pixel_scale) + math.cos(offset_angle) * offset_dist
+                base_ay = center_y + math.sin(angle) * (tip_dist - 2*pixel_scale) + math.sin(offset_angle) * offset_dist
+                # Arrowhead accent (draw first)
+                pygame.draw.rect(self.screen, needle_color_accent, (base_ax-pixel_scale+pixel_scale//2, base_ay-pixel_scale+pixel_scale//2, pixel_scale*2, pixel_scale*2))
+                pygame.draw.rect(self.screen, needle_color_main, (base_ax-pixel_scale, base_ay-pixel_scale, pixel_scale*2, pixel_scale*2))
+            # Tip of arrowhead (draw last to be on top)
+            pygame.draw.rect(self.screen, needle_color_accent, (tip_x-pixel_scale+pixel_scale//2, tip_y-pixel_scale+pixel_scale//2, pixel_scale*2, pixel_scale*2)) 
+            pygame.draw.rect(self.screen, needle_color_main, (tip_x-pixel_scale, tip_y-pixel_scale, pixel_scale*2, pixel_scale*2))
+
+            # --- Draw Improved Needle Tail ---
+            # Tail will be a 2-pixel wide rectangle with an accent
+            for i in range(1, needle_tail_len_px + 1):
+                dist = i * pixel_scale
+                # Calculate base position for this segment of the tail
+                base_tail_x = center_x + math.cos(angle + math.pi) * dist
+                base_tail_y = center_y + math.sin(angle + math.pi) * dist
+
+                # Draw the two main pixels for width
+                # Pixel 1 (slightly to one side of the center line)
+                px1 = base_tail_x + math.cos(angle + math.pi/2) * (pixel_scale / 2)
+                py1 = base_tail_y + math.sin(angle + math.pi/2) * (pixel_scale / 2)
+                pygame.draw.rect(self.screen, needle_tail_color_main, (px1 - pixel_scale//2, py1 - pixel_scale//2, pixel_scale, pixel_scale))
+                
+                # Pixel 2 (slightly to the other side)
+                px2 = base_tail_x - math.cos(angle + math.pi/2) * (pixel_scale / 2)
+                py2 = base_tail_y - math.sin(angle + math.pi/2) * (pixel_scale / 2)
+                pygame.draw.rect(self.screen, needle_tail_color_main, (px2 - pixel_scale//2, py2 - pixel_scale//2, pixel_scale, pixel_scale))
+                
+                # Add an accent pixel in the middle of the two, slightly offset for depth
+                if i > 1 : # Don't put accent right at the pivot
+                    accent_tail_x = base_tail_x + pixel_scale//4 # Offset for accent
+                    accent_tail_y = base_tail_y + pixel_scale//4 # Offset for accent
+                    pygame.draw.rect(self.screen, needle_tail_color_accent, (accent_tail_x - pixel_scale//2, accent_tail_y - pixel_scale//2, pixel_scale, pixel_scale))
+
+            # Center Pivot (more decorative)
+            pygame.draw.rect(self.screen, (80, 80, 80), (center_x - pixel_scale, center_y - pixel_scale, pixel_scale*2, pixel_scale*2))
+            pygame.draw.rect(self.screen, (255,255,255), (center_x - pixel_scale//2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
+            
+            font = pygame.font.Font(None, 18)
+            label_text = "DOOR"
+            label_surface = font.render(label_text, True, (230, 230, 230))
+            label_rect = label_surface.get_rect(centerx=center_x, y=base_compass_y + compass_area_size + 3)
+            outline_surface = font.render(label_text, True, (0,0,0))
+            self.screen.blit(outline_surface, (label_rect.x + 1, label_rect.y + 1))
+            self.screen.blit(label_surface, label_rect)
+
+        else:
+            # --- Default Pixelated Circular Compass (No Doors) ---
+            dir_color_cardinal = (200, 200, 200)
+            dir_color_inter = (140, 140, 140)
+            marker_len_px = 3 # Length of cardinal markers from edge
+
+            # Cardinal direction markers (lines from the edge inwards)
+            for i in range(marker_len_px):
+                dist_from_edge = i * pixel_scale
+                # N
+                pygame.draw.rect(self.screen, dir_color_cardinal, (center_x - pixel_scale//2, base_compass_y + (radius_pixels - 12)*pixel_scale + dist_from_edge, pixel_scale, pixel_scale))
+                # S
+                pygame.draw.rect(self.screen, dir_color_cardinal, (center_x - pixel_scale//2, base_compass_y + (radius_pixels + 10)*pixel_scale - dist_from_edge - pixel_scale*2, pixel_scale, pixel_scale))
+                # E
+                pygame.draw.rect(self.screen, dir_color_cardinal, (base_compass_x + (radius_pixels + 10)*pixel_scale - dist_from_edge - pixel_scale*2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
+                # W
+                pygame.draw.rect(self.screen, dir_color_cardinal, (base_compass_x + (radius_pixels - 12)*pixel_scale + dist_from_edge, center_y - pixel_scale//2, pixel_scale, pixel_scale))
+
+            # Intercardinal markers (single pixels)
+            inter_dist_factor = 0.707 * (radius_pixels -1) # approx sqrt(2)/2 for 45 deg
+            inter_marker_positions = [
+                (center_x + inter_dist_factor * pixel_scale, center_y - inter_dist_factor * pixel_scale),
+                (center_x + inter_dist_factor * pixel_scale, center_y + inter_dist_factor * pixel_scale),
+                (center_x - inter_dist_factor * pixel_scale, center_y + inter_dist_factor * pixel_scale),
+                (center_x - inter_dist_factor * pixel_scale, center_y - inter_dist_factor * pixel_scale),
+            ]
+            for pos_x, pos_y in inter_marker_positions:
+                 pygame.draw.rect(self.screen, dir_color_inter, (pos_x - pixel_scale//2, pos_y - pixel_scale//2, pixel_scale, pixel_scale))
+
+            # Center Pivot
+            pygame.draw.rect(self.screen, (80, 80, 80), (center_x - pixel_scale, center_y - pixel_scale, pixel_scale*2, pixel_scale*2))
+            pygame.draw.rect(self.screen, (255,255,255), (center_x - pixel_scale//2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
+
+            font = pygame.font.Font(None, 18)
+            label_text = "COMPASS"
+            label_surface = font.render(label_text, True, (180, 180, 180))
+            label_rect = label_surface.get_rect(centerx=center_x, y=base_compass_y + compass_area_size + 3)
+            outline_surface = font.render(label_text, True, (0,0,0))
+            self.screen.blit(outline_surface, (label_rect.x + 1, label_rect.y + 1))
+            self.screen.blit(label_surface, label_rect)
+            
     def update(self):
         """Update game state"""
         if self.paused:
@@ -490,6 +716,9 @@ class GameDemo:
         
         # Draw zoom level indicator
         self._draw_zoom_indicator()
+        
+        # Draw compass
+        self._draw_compass()
         
         # Draw control instructions
         self._draw_instructions()
@@ -739,7 +968,11 @@ class GameDemo:
             "Delete: Clean up duplicate interactables (when coords shown)",
             "[ / ]: Decrease/Increase speed (when speed debug on)",
             "\\: Reset speed to default (when speed debug on)",
-            "ESC: Quit"
+            "ESC: Quit",
+            "",
+            "COMPASS: Points to nearest door (top-right)",
+            "- Red arrow when doors exist",
+            "- N/S/E/W when no doors"
         ]
         
         y_pos = self.screen_height - len(instructions) * 22 - 10

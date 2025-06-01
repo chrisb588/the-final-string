@@ -395,9 +395,9 @@ class PasswordUI:
             print(f"Could not load custom font: {e}")
             print("Falling back to default font")
             # Fallback to default font if custom font fails to load
-            self.font = pygame.font.Font(None, 24)
-            self.title_font = pygame.font.Font(None, 32)
-            self.small_font = pygame.font.Font(None, 20)
+        self.font = pygame.font.Font(None, 24)
+        self.title_font = pygame.font.Font(None, 32)
+        self.small_font = pygame.font.Font(None, 20)
         
         # Enhanced Color Palette
         self.panel_bg_color = (45, 45, 55)        # Darker blue-gray
@@ -414,7 +414,7 @@ class PasswordUI:
         self.scrollbar_bg_color = (60, 60, 70)
         self.scrollbar_thumb_color = (100, 100, 110)
         self.selection_bg_color = (80, 100, 150) # For text selection
-
+        
         # UI state
         self.visible = False
         self.rules = []
@@ -496,7 +496,7 @@ class PasswordUI:
         """Handle input events"""
         if not self.visible:
             return False
-        
+            
         # Handle global shortcuts
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -600,7 +600,7 @@ class PasswordUI:
         input_field_y_offset = 30 # Space between rules and input label
         input_label_to_field_offset = 5 # Space between input label and field
         validation_text_y_offset = 10 # Space between input field and validation
-
+        
         # Draw main UI panel
         panel_rect = pygame.Rect(self.x, self.y, self.width, self.height)
         pygame.draw.rect(self.screen, self.panel_bg_color, panel_rect, border_radius=10) # Added rounded corners
@@ -682,7 +682,7 @@ class MessageUI:
             self.font = pygame.font.Font(None, 22)
             
         self.messages = []  # List of (message, timestamp, duration)
-
+        
     def show_message(self, message: str, duration: int = 3000):
         """Show a temporary message"""
         timestamp = pygame.time.get_ticks()
@@ -741,9 +741,9 @@ class RulesDisplayUI:
         except (pygame.error, FileNotFoundError) as e:
             print(f"Could not load custom font for RulesDisplayUI: {e}")
             # Fallback to default font if custom font fails to load
-            self.font = pygame.font.Font(None, 18)
-            self.title_font = pygame.font.Font(None, 20)
-
+        self.font = pygame.font.Font(None, 18)
+        self.title_font = pygame.font.Font(None, 20)
+        
     def render(self, rules: List[str]):
         """Render the rules display"""
         if not rules:

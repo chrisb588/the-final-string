@@ -245,7 +245,7 @@ class MultiTileEmptyInteractable(MultiTileInteractable):
         return {
             "type": "empty_interactable",
             "message": random.choice(messages)
-        }
+            }
 
 class InteractableManager:
     """Manages all interactable objects in a level"""
