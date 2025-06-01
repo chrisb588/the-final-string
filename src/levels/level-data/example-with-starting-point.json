@@ -133,6 +133,12 @@
           "x": 1,
           "y": 1,
           "type": "empty"
+        },
+        {
+          "x": 5,
+          "y": 0,
+          "type": "empty",
+          "id": "25"
         }
       ],
       "collider": true

@@ -1,11 +1,12 @@
 import pygame
 import pyperclip  # For clipboard operations
 from typing import List, Dict, Optional, Callable
+import os
 
 class SelectableText:
     """A text widget that supports selection and clipboard operations with scrolling"""
     
-    def __init__(self, text: str, font: pygame.font.Font, color: tuple, rect: pygame.Rect):
+    def __init__(self, text: str, font: pygame.font.Font, color: tuple, rect: pygame.Rect, selection_bg_color: tuple = (80, 100, 150)):
         self.text = text
         self.font = font
         self.default_color = color
@@ -13,6 +14,7 @@ class SelectableText:
         self.lines = text.split('\n')
         self.line_height = font.get_height()
         self.line_colors = [color] * len(self.lines)  # Default all lines to same color
+        self.selection_bg_color = selection_bg_color
         
         # Selection state
         self.selection_start = None
@@ -136,6 +138,8 @@ class SelectableText:
         y_offset = 0
         char_index = sum(len(self.lines[i]) + 1 for i in range(start_line))
         
+        text_padding_x = 10 # Added horizontal padding
+
         # Draw visible lines
         for line_idx in range(start_line, end_line):
             line = self.lines[line_idx]
@@ -147,32 +151,27 @@ class SelectableText:
                 start = min(self.selection_start, self.selection_end)
                 end = max(self.selection_start, self.selection_end)
                 
-                line_start = char_index
-                line_end = char_index + len(line)
+                line_start_char_idx = sum(len(self.lines[i]) + 1 for i in range(line_idx)) # char index at start of this line
                 
-                if start < line_end and end > line_start:
-                    # Calculate selection bounds within this line
-                    sel_start_in_line = max(0, start - line_start)
-                    sel_end_in_line = min(len(line), end - line_start)
+                if start < line_start_char_idx + len(line) and end > line_start_char_idx:
+                    sel_start_in_line = max(0, start - line_start_char_idx)
+                    sel_end_in_line = min(len(line), end - line_start_char_idx)
                     
                     if sel_start_in_line < sel_end_in_line:
-                        # Calculate pixel positions
-                        start_x = self.font.size(line[:sel_start_in_line])[0] if sel_start_in_line > 0 else 0
-                        end_x = self.font.size(line[:sel_end_in_line])[0]
+                        start_x_offset = self.font.size(line[:sel_start_in_line])[0] if sel_start_in_line > 0 else 0
+                        end_x_offset = self.font.size(line[:sel_end_in_line])[0]
                         
-                        # Draw selection background
                         sel_rect = pygame.Rect(
-                            self.rect.x + start_x,
+                            self.rect.x + text_padding_x + start_x_offset,
                             self.rect.y + y_offset,
-                            end_x - start_x,
+                            end_x_offset - start_x_offset,
                             self.line_height
                         )
-                        pygame.draw.rect(screen, (100, 150, 255), sel_rect)
+                        pygame.draw.rect(screen, self.selection_bg_color, sel_rect)
             
             # Draw the text
-            screen.blit(line_surface, (self.rect.x, self.rect.y + y_offset))
+            screen.blit(line_surface, (self.rect.x + text_padding_x, self.rect.y + y_offset))
             y_offset += self.line_height
-            char_index += len(line) + 1  # +1 for newline
         
         # Draw scrollbar if needed
         if self.max_scroll > 0:
@@ -180,26 +179,31 @@ class SelectableText:
     
     def _draw_scrollbar(self, screen):
         """Draw a scrollbar on the right side"""
-        scrollbar_width = 8
-        scrollbar_x = self.rect.right - scrollbar_width
+        scrollbar_width = 6  # Made thinner
+        scrollbar_margin = 2 # Margin from text
+        scrollbar_x = self.rect.right - scrollbar_width - scrollbar_margin 
         scrollbar_y = self.rect.y
         scrollbar_height = self.rect.height
         
         # Draw scrollbar background
         scrollbar_bg = pygame.Rect(scrollbar_x, scrollbar_y, scrollbar_width, scrollbar_height)
-        pygame.draw.rect(screen, (60, 60, 60), scrollbar_bg)
+        pygame.draw.rect(screen, self.ui_manager.scrollbar_bg_color, scrollbar_bg)
         
         # Draw scrollbar thumb
         if self.max_scroll > 0:
             thumb_height = max(20, int(scrollbar_height * self.max_visible_lines / len(self.lines)))
             thumb_y = scrollbar_y + int((scrollbar_height - thumb_height) * self.scroll_offset / self.max_scroll)
             thumb_rect = pygame.Rect(scrollbar_x, thumb_y, scrollbar_width, thumb_height)
-            pygame.draw.rect(screen, (120, 120, 120), thumb_rect)
+            pygame.draw.rect(screen, self.ui_manager.scrollbar_thumb_color, thumb_rect)
+
+    def set_ui_manager(self, ui_manager):
+        """Set the UI manager to access its color palette."""
+        self.ui_manager = ui_manager
 
 class EditableText:
     """An editable text input that supports clipboard operations"""
     
-    def __init__(self, font: pygame.font.Font, rect: pygame.Rect, initial_text: str = ""):
+    def __init__(self, font: pygame.font.Font, rect: pygame.Rect, initial_text: str = "", ui_manager=None):
         self.font = font
         self.rect = rect
         self.text = initial_text
@@ -207,6 +211,7 @@ class EditableText:
         self.selection_start = None
         self.selection_end = None
         self.focused = False
+        self.ui_manager = ui_manager # Store reference to PasswordUI
         
     def handle_event(self, event):
         """Handle input events"""
@@ -337,11 +342,13 @@ class EditableText:
     def render(self, screen):
         """Render the text input"""
         # Draw background
-        bg_color = (60, 60, 60) if self.focused else (40, 40, 40)
-        border_color = (100, 150, 255) if self.focused else (100, 100, 100)
+        bg_color = self.ui_manager.input_bg_color if self.ui_manager else (60, 60, 70)
+        border_color = self.ui_manager.input_focused_border_color if self.focused and self.ui_manager else (self.ui_manager.input_border_color if self.ui_manager else (100,100,110))
+        text_color = self.ui_manager.text_color if self.ui_manager else (255,255,255)
+        selection_bg_color = self.ui_manager.selection_bg_color if self.ui_manager else (80, 100, 150)
         
-        pygame.draw.rect(screen, bg_color, self.rect)
-        pygame.draw.rect(screen, border_color, self.rect, 2)
+        pygame.draw.rect(screen, bg_color, self.rect, border_radius=3)
+        pygame.draw.rect(screen, border_color, self.rect, 2, border_radius=3)
         
         # Draw selection
         if self.selection_start is not None and self.selection_end is not None:
@@ -357,17 +364,17 @@ class EditableText:
                 end_x - start_x,
                 self.rect.height - 10
             )
-            pygame.draw.rect(screen, (100, 150, 255), sel_rect)
+            pygame.draw.rect(screen, selection_bg_color, sel_rect)
         
         # Draw text
         if self.text:
-            text_surface = self.font.render(self.text, True, (255, 255, 255))
-            screen.blit(text_surface, (self.rect.x + 5, self.rect.y + 5))
+            text_surface = self.font.render(self.text, True, text_color)
+            screen.blit(text_surface, (self.rect.x + 5, self.rect.y + (self.rect.height - text_surface.get_height()) // 2)) # Center text vertically
         
         # Draw cursor
         if self.focused and pygame.time.get_ticks() % 1000 < 500:
             cursor_x = self.rect.x + 5 + self.font.size(self.text[:self.cursor_pos])[0]
-            pygame.draw.line(screen, (255, 255, 255), 
+            pygame.draw.line(screen, text_color, 
                            (cursor_x, self.rect.y + 5), 
                            (cursor_x, self.rect.y + self.rect.height - 5), 2)
 
@@ -376,10 +383,38 @@ class PasswordUI:
     
     def __init__(self, screen: pygame.Surface):
         self.screen = screen
-        self.font = pygame.font.Font(None, 24)
-        self.title_font = pygame.font.Font(None, 32)
-        self.small_font = pygame.font.Font(None, 20)
         
+        # Load custom font from assets/fonts directory
+        font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "fonts", "Unifontexmono-2vrqo.ttf")
+        
+        try:
+            self.font = pygame.font.Font(font_path, 22)  # Slightly smaller for better fit
+            self.title_font = pygame.font.Font(font_path, 28) # Slightly smaller
+            self.small_font = pygame.font.Font(font_path, 18) # Slightly smaller
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Could not load custom font: {e}")
+            print("Falling back to default font")
+            # Fallback to default font if custom font fails to load
+            self.font = pygame.font.Font(None, 24)
+            self.title_font = pygame.font.Font(None, 32)
+            self.small_font = pygame.font.Font(None, 20)
+        
+        # Enhanced Color Palette
+        self.panel_bg_color = (45, 45, 55)        # Darker blue-gray
+        self.panel_border_color = (80, 80, 90)    # Lighter gray for border
+        self.text_color = (220, 220, 230)         # Off-white/light lavender
+        self.title_text_color = (230, 230, 240)   # Slightly brighter for title
+        self.input_bg_color = (60, 60, 70)        # Darker input field
+        self.input_border_color = (100, 100, 110) # Border for input
+        self.input_focused_border_color = (120, 120, 220) # Highlight for focused input
+        self.satisfied_rule_color = (100, 220, 100) # Softer green
+        self.unsatisfied_rule_color = (220, 100, 100) # Softer red
+        self.hidden_rule_color = (150, 150, 160)    # Gray for hidden rules
+        self.message_color = (200, 200, 210)      # For messages
+        self.scrollbar_bg_color = (60, 60, 70)
+        self.scrollbar_thumb_color = (100, 100, 110)
+        self.selection_bg_color = (80, 100, 150) # For text selection
+
         # UI state
         self.visible = False
         self.rules = []
@@ -429,8 +464,10 @@ class PasswordUI:
         # Update existing rules text or create new one
         if self.rules_text:
             self.rules_text.update_content(rules_content)
+            self.rules_text.set_ui_manager(self) # Ensure ui_manager is set
         else:
-            self.rules_text = SelectableText(rules_content, self.small_font, (255, 255, 255), rules_rect)
+            self.rules_text = SelectableText(rules_content, self.small_font, self.text_color, rules_rect, self.selection_bg_color)
+            self.rules_text.set_ui_manager(self) # Set ui_manager
             # Update scrolling parameters after content is set
             self.rules_text.max_visible_lines = max(1, self.rules_text.rect.height // self.rules_text.line_height)
             self.rules_text.max_scroll = max(0, len(self.rules_text.lines) - self.rules_text.max_visible_lines)
@@ -439,8 +476,8 @@ class PasswordUI:
                 self.rules_text.scroll_to_bottom()
         
         # Create password input with preserved password
-        input_rect = pygame.Rect(self.x + 20, self.y + 350, self.width - 40, 30)
-        self.password_input = EditableText(self.font, input_rect, preserved_password)
+        input_rect = pygame.Rect(self.x + 20, self.y + 350, self.width - 40, 35) # Increased height
+        self.password_input = EditableText(self.font, input_rect, preserved_password, self)
         
         # Auto-focus the password input so user can start typing immediately
         self.password_input.focused = True
@@ -554,85 +591,98 @@ class PasswordUI:
             
         # Create semi-transparent overlay
         overlay = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
-        overlay.set_alpha(180)
+        overlay.set_alpha(200) # Slightly more opaque
         overlay.fill((0, 0, 0))
         self.screen.blit(overlay, (0, 0))
         
+        panel_padding = 20
+        rules_rect_height = 230 # Adjusted height
+        input_field_y_offset = 30 # Space between rules and input label
+        input_label_to_field_offset = 5 # Space between input label and field
+        validation_text_y_offset = 10 # Space between input field and validation
+
         # Draw main UI panel
         panel_rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        pygame.draw.rect(self.screen, (40, 40, 40), panel_rect)
-        pygame.draw.rect(self.screen, (100, 100, 100), panel_rect, 2)
+        pygame.draw.rect(self.screen, self.panel_bg_color, panel_rect, border_radius=10) # Added rounded corners
+        pygame.draw.rect(self.screen, self.panel_border_color, panel_rect, 2, border_radius=10)
         
         # Draw title
-        title_text = self.title_font.render("Password Required", True, (255, 255, 255))
+        title_text = self.title_font.render("Password Required", True, self.title_text_color)
         title_x = self.x + (self.width - title_text.get_width()) // 2
-        self.screen.blit(title_text, (title_x, self.y + 20))
+        self.screen.blit(title_text, (title_x, self.y + panel_padding))
         
         # Draw message
-        message_text = self.font.render(self.message, True, (255, 255, 255))
+        message_text_y = self.y + panel_padding + title_text.get_height() + 10
+        message_text = self.font.render(self.message, True, self.message_color)
         message_x = self.x + (self.width - message_text.get_width()) // 2
-        self.screen.blit(message_text, (message_x, self.y + 60))
+        self.screen.blit(message_text, (message_x, message_text_y))
         
-        # Update rules text colors based on validation
+        rules_rect_y = message_text_y + message_text.get_height() + 15
+        rules_rect = pygame.Rect(self.x + panel_padding, rules_rect_y, self.width - panel_padding*2, rules_rect_height)
+        
         if self.rules_text:
+            self.rules_text.rect = rules_rect # Update rect in case it changed
             line_colors = []
             for line in self.rules_text.lines:
                 if line.strip().startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')):
-                    # This is a rule line
                     if "????" in line:
-                        # Uncollected rule - show in gray
-                        line_colors.append((150, 150, 150))
+                        line_colors.append(self.hidden_rule_color)
                     else:
-                        # Collected rule - check if it's satisfied
                         rule_satisfied = False
                         if self.validation_results:
                             for rule, satisfied in self.validation_results.items():
                                 if rule in line:
                                     rule_satisfied = satisfied
                                     break
-                        
                         if rule_satisfied:
-                            line_colors.append((0, 255, 0))  # Green for satisfied
+                            line_colors.append(self.satisfied_rule_color)
                         else:
-                            line_colors.append((255, 0, 0))  # Red for not satisfied
+                            line_colors.append(self.unsatisfied_rule_color)
                 else:
-                    # Header or other text, keep white
-                    line_colors.append((255, 255, 255))
-            
+                    line_colors.append(self.text_color)
             self.rules_text.set_line_colors(line_colors)
-        
-        # Render rules text (selectable with color coding)
-        if self.rules_text:
             self.rules_text.render(self.screen)
         
-        # Draw password input label
-        input_label = self.font.render("Enter Password:", True, (255, 255, 255))
-        self.screen.blit(input_label, (self.x + 20, self.y + 320))
+        input_label_y = rules_rect_y + rules_rect_height + input_field_y_offset
+        input_label = self.font.render("Enter Password:", True, self.text_color)
+        self.screen.blit(input_label, (self.x + panel_padding, input_label_y))
         
-        # Render password input (editable with clipboard support)
+        input_field_y = input_label_y + input_label.get_height() + input_label_to_field_offset
         if self.password_input:
+            self.password_input.rect.y = input_field_y # Update y position
+            self.password_input.rect.x = self.x + panel_padding
+            self.password_input.rect.width = self.width - panel_padding*2
             self.password_input.render(self.screen)
         
-        # Draw validation results
+        validation_text_y = input_field_y + (self.password_input.rect.height if self.password_input else 35) + validation_text_y_offset
         if self.password_input:
             valid_count = sum(1 for result in self.validation_results.values() if result) if self.validation_results else 0
             total_collected = len(self.collected_rules)
             total_required = self.door.required_rules if self.door else total_collected
-            
-            # Show both collected rules satisfaction and total progress
             validation_text = f"Rules satisfied: {valid_count}/{total_collected} | Total required: {total_collected}/{total_required}"
-            validation_color = (0, 255, 0) if valid_count == total_collected and total_collected >= total_required else (255, 255, 0)
+            validation_color = self.satisfied_rule_color if valid_count == total_collected and total_collected >= total_required and total_collected > 0 else self.unsatisfied_rule_color
             validation_surface = self.small_font.render(validation_text, True, validation_color)
-            self.screen.blit(validation_surface, (self.x + 20, self.y + 390))
+            self.screen.blit(validation_surface, (self.x + panel_padding, validation_text_y))
 
 class MessageUI:
     """Simple UI for displaying temporary messages"""
     
-    def __init__(self, screen: pygame.Surface):
+    def __init__(self, screen: pygame.Surface, ui_manager=None):
         self.screen = screen
-        self.font = pygame.font.Font(None, 24)
-        self.messages = []  # List of (message, timestamp, duration)
+        self.ui_manager = ui_manager
         
+        # Load custom font from assets/fonts directory
+        font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "fonts", "Unifontexmono-2vrqo.ttf")
+        
+        try:
+            self.font = pygame.font.Font(font_path, 20) # Adjusted size
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Could not load custom font for MessageUI: {e}")
+            # Fallback to default font if custom font fails to load
+            self.font = pygame.font.Font(None, 22)
+            
+        self.messages = []  # List of (message, timestamp, duration)
+
     def show_message(self, message: str, duration: int = 3000):
         """Show a temporary message"""
         timestamp = pygame.time.get_ticks()
@@ -646,6 +696,9 @@ class MessageUI:
     
     def render(self):
         """Render all active messages"""
+        text_color = self.ui_manager.text_color if self.ui_manager else (220,220,230)
+        bg_color = self.ui_manager.panel_bg_color if self.ui_manager else (45,45,55)
+
         for i, (message, timestamp, duration) in enumerate(self.messages):
             # Calculate alpha based on remaining time
             current_time = pygame.time.get_ticks()
@@ -653,22 +706,21 @@ class MessageUI:
             remaining = duration - elapsed
             
             if remaining > 0:
-                alpha = min(255, remaining // 10)  # Fade out in last second
+                alpha = min(255, int(255 * (remaining / duration))) # Smoother fade
                 
                 # Render message
-                text_surface = self.font.render(message, True, (255, 255, 255))
+                text_surface = self.font.render(message, True, text_color)
                 text_surface.set_alpha(alpha)
                 
                 # Position message at middle bottom
                 x = (self.screen.get_width() - text_surface.get_width()) // 2
-                y = self.screen.get_height() - 100 - (len(self.messages) - i - 1) * 35
+                y = self.screen.get_height() - 60 - (len(self.messages) - i - 1) * 30 # Adjusted spacing
                 
                 # Draw background
-                bg_rect = pygame.Rect(x - 5, y - 5, text_surface.get_width() + 10, text_surface.get_height() + 10)
-                bg_surface = pygame.Surface((bg_rect.width, bg_rect.height))
-                bg_surface.set_alpha(alpha // 2)
-                bg_surface.fill((0, 0, 0))
-                self.screen.blit(bg_surface, bg_rect)
+                padding = 8
+                bg_rect = pygame.Rect(x - padding, y - padding, text_surface.get_width() + padding*2, text_surface.get_height() + padding*2)
+                pygame.draw.rect(self.screen, bg_color, bg_rect, border_radius=5) # Rounded corners
+                pygame.draw.rect(self.screen, (0,0,0, alpha // 2), bg_rect, 1, border_radius=5) # Subtle border
                 
                 # Draw text
                 self.screen.blit(text_surface, (x, y))
@@ -676,38 +728,59 @@ class MessageUI:
 class RulesDisplayUI:
     """UI for displaying collected rules in the corner"""
     
-    def __init__(self, screen: pygame.Surface):
+    def __init__(self, screen: pygame.Surface, ui_manager=None):
         self.screen = screen
-        self.font = pygame.font.Font(None, 18)
-        self.title_font = pygame.font.Font(None, 20)
+        self.ui_manager = ui_manager
         
+        # Load custom font from assets/fonts directory
+        font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "fonts", "Unifontexmono-2vrqo.ttf")
+        
+        try:
+            self.font = pygame.font.Font(font_path, 16) # Adjusted size
+            self.title_font = pygame.font.Font(font_path, 18) # Adjusted size
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Could not load custom font for RulesDisplayUI: {e}")
+            # Fallback to default font if custom font fails to load
+            self.font = pygame.font.Font(None, 18)
+            self.title_font = pygame.font.Font(None, 20)
+
     def render(self, rules: List[str]):
         """Render the rules display"""
         if not rules:
             return
+        
+        text_color = self.ui_manager.text_color if self.ui_manager else (220,220,230)
+        title_text_color = self.ui_manager.title_text_color if self.ui_manager else (230,230,240)
+        bg_color = self.ui_manager.panel_bg_color if self.ui_manager else (45,45,55)
+        border_color = self.ui_manager.panel_border_color if self.ui_manager else (80,80,90)
             
         # Position in top-left corner
-        x = 10
-        y = 10
+        x = 15
+        y = 15
+        padding = 8
         
         # Draw title
-        title_text = self.title_font.render(f"Rules Found ({len(rules)}/4):", True, (255, 255, 255))
+        title_text_content = f"Rules Found ({len(rules)}):" # Removed /4 as it's dynamic
+        title_surface = self.title_font.render(title_text_content, True, title_text_color)
         
-        # Draw background
-        max_width = max(title_text.get_width(), 
-                       max([self.font.size(rule)[0] for rule in rules] + [0]))
-        height = 30 + len(rules) * 20
+        # Calculate dimensions
+        max_rule_width = max([self.font.size(f"• {rule}")[0] for rule in rules] + [0])
+        content_width = max(title_surface.get_width(), max_rule_width)
+        total_width = content_width + padding * 2
+        content_height = title_surface.get_height() + (len(rules) * (self.font.get_height() + 3)) # +3 for spacing
+        total_height = content_height + padding * 2
         
-        bg_rect = pygame.Rect(x - 5, y - 5, max_width + 10, height)
-        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height))
-        bg_surface.set_alpha(150)
-        bg_surface.fill((0, 0, 0))
-        self.screen.blit(bg_surface, bg_rect)
+        # Draw background panel
+        bg_rect = pygame.Rect(x - padding, y - padding, total_width, total_height)
+        pygame.draw.rect(self.screen, bg_color, bg_rect, border_radius=5)
+        pygame.draw.rect(self.screen, border_color, bg_rect, 1, border_radius=5)
         
         # Draw title
-        self.screen.blit(title_text, (x, y))
+        self.screen.blit(title_surface, (x, y))
         
         # Draw rules
-        for i, rule in enumerate(rules):
-            rule_text = self.font.render(f"• {rule}", True, (200, 255, 200))
-            self.screen.blit(rule_text, (x, y + 25 + i * 20)) 
+        current_y = y + title_surface.get_height() + 5 # Spacing after title
+        for rule in rules:
+            rule_surface = self.font.render(f"• {rule}", True, text_color)
+            self.screen.blit(rule_surface, (x, current_y))
+            current_y += self.font.get_height() + 3 # Spacing between rules 

@@ -686,6 +686,12 @@
           "y": 7,
           "type": "empty",
           "id": "13"
+        },
+        {
+          "x": 14,
+          "y": 13,
+          "type": "empty",
+          "id": "25"
         }
       ],
       "collider": false

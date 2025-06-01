@@ -317,12 +317,31 @@ class InteractableManager:
             with open(self.current_level_path, 'r') as f:
                 level_data = json.load(f)
             
-            # Find or create the interactables layer
+            # Find or create the interactables layer - handle multiple interactables layers
             interactables_layer = None
-            for layer in level_data.get("layers", []):
+            duplicate_layers = []
+            
+            for i, layer in enumerate(level_data.get("layers", [])):
                 if layer.get("name") == "interactables":
-                    interactables_layer = layer
-                    break
+                    if interactables_layer is None:
+                        interactables_layer = layer
+                        print(f"Found primary interactables layer at index {i}")
+                    else:
+                        duplicate_layers.append((i, layer))
+                        print(f"Found duplicate interactables layer at index {i}")
+            
+            # If there are duplicate layers, merge them into the first one
+            if duplicate_layers:
+                print(f"Merging {len(duplicate_layers)} duplicate interactables layers into primary layer")
+                for layer_index, duplicate_layer in duplicate_layers:
+                    # Add tiles from duplicate layer to primary layer
+                    for tile in duplicate_layer.get("tiles", []):
+                        interactables_layer["tiles"].append(tile)
+                
+                # Remove duplicate layers (in reverse order to maintain indices)
+                for layer_index, _ in reversed(duplicate_layers):
+                    del level_data["layers"][layer_index]
+                    print(f"Removed duplicate interactables layer at index {layer_index}")
             
             if not interactables_layer:
                 # Create new interactables layer
@@ -332,6 +351,7 @@ class InteractableManager:
                     "collider": False
                 }
                 level_data["layers"].append(interactables_layer)
+                print("Created new interactables layer")
             
             # Group adjacent tiles
             groups = self._group_adjacent_tiles_static(tiles)
@@ -342,9 +362,11 @@ class InteractableManager:
                 existing_coords.add((tile["x"], tile["y"]))
             
             # Add new interactables for each group
+            added_count = 0
             for group in groups:
                 # Skip if any tile in this group already exists
                 if any((x, y) in existing_coords for x, y in group):
+                    print(f"Skipping group {group} - tiles already exist")
                     continue
                 
                 if len(group) == 1:
@@ -360,6 +382,8 @@ class InteractableManager:
                         new_tile["id"] = tile_id
                     
                     interactables_layer["tiles"].append(new_tile)
+                    added_count += 1
+                    print(f"Added single tile interactable at ({x}, {y})")
                 else:
                     # Multi-tile interactable - create one entry for the whole group
                     coordinates = list(group)
@@ -375,12 +399,18 @@ class InteractableManager:
                         new_tile["id"] = tile_id
                     
                     interactables_layer["tiles"].append(new_tile)
+                    added_count += 1
+                    print(f"Added multi-tile interactable with {len(group)} tiles starting at {first_coord}")
+            
+            if added_count == 0:
+                print("No new interactables were added (all positions already exist)")
+                return False
             
             # Save the modified level file
             with open(self.current_level_path, 'w') as f:
                 json.dump(level_data, f, indent=2)
             
-            print(f"Successfully saved interactables to {self.current_level_path}")
+            print(f"Successfully saved {added_count} interactable(s) to {self.current_level_path}")
             return True
             
         except Exception as e:
@@ -398,12 +428,31 @@ class InteractableManager:
             with open(self.current_level_path, 'r') as f:
                 level_data = json.load(f)
             
-            # Find or create the interactables layer
+            # Find or create the interactables layer - handle multiple interactables layers
             interactables_layer = None
-            for layer in level_data.get("layers", []):
+            duplicate_layers = []
+            
+            for i, layer in enumerate(level_data.get("layers", [])):
                 if layer.get("name") == "interactables":
-                    interactables_layer = layer
-                    break
+                    if interactables_layer is None:
+                        interactables_layer = layer
+                        print(f"Found primary interactables layer at index {i}")
+                    else:
+                        duplicate_layers.append((i, layer))
+                        print(f"Found duplicate interactables layer at index {i}")
+            
+            # If there are duplicate layers, merge them into the first one
+            if duplicate_layers:
+                print(f"Merging {len(duplicate_layers)} duplicate interactables layers into primary layer")
+                for layer_index, duplicate_layer in duplicate_layers:
+                    # Add tiles from duplicate layer to primary layer
+                    for tile in duplicate_layer.get("tiles", []):
+                        interactables_layer["tiles"].append(tile)
+                
+                # Remove duplicate layers (in reverse order to maintain indices)
+                for layer_index, _ in reversed(duplicate_layers):
+                    del level_data["layers"][layer_index]
+                    print(f"Removed duplicate interactables layer at index {layer_index}")
             
             if not interactables_layer:
                 # Create new interactables layer
@@ -413,6 +462,7 @@ class InteractableManager:
                     "collider": False
                 }
                 level_data["layers"].append(interactables_layer)
+                print("Created new interactables layer")
             
             # Check if a door already exists at this position
             for tile in interactables_layer["tiles"]:

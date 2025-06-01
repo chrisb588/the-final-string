@@ -58,10 +58,10 @@ class GameDemo:
             sprite_sheet_path="assets/images/spritesheets"
         )
         
-        # UI components
+        # UI components - Pass self (PasswordUI) to other UI elements for consistent styling
         self.password_ui = PasswordUI(self.screen)
-        self.message_ui = MessageUI(self.screen)
-        self.rules_ui = RulesDisplayUI(self.screen)
+        self.message_ui = MessageUI(self.screen, ui_manager=self.password_ui)
+        self.rules_ui = RulesDisplayUI(self.screen, ui_manager=self.password_ui)
         
         # Matrix background
         self.matrix_background = MatrixBackground(
@@ -244,6 +244,20 @@ class GameDemo:
                     # Clean up duplicate interactables
                     self._clean_duplicate_interactables()
                 
+                elif event.key == pygame.K_z and self.show_coordinates:
+                    # Force reload level from file (useful for testing saved interactables)
+                    current_name = self.level_manager.current_level_name
+                    if current_name:
+                        if self.level_manager.load_level(current_name):
+                            self.load_level_interactables()
+                            print(f"Force reloaded level '{current_name}' from file")
+                            self.message_ui.show_message(f"Reloaded '{current_name}' from file", 2000)
+                        else:
+                            print(f"Failed to reload level '{current_name}' from file")
+                            self.message_ui.show_message(f"Failed to reload '{current_name}'", 2000)
+                    else:
+                        self.message_ui.show_message("No level loaded", 2000)
+                
                 elif event.key == pygame.K_RETURN and self.creation_mode:
                     # Create interactable from selected tiles and save to JSON (not in delete mode)
                     if not self.delete_mode:
@@ -338,11 +352,15 @@ class GameDemo:
                     success_count += 1
             
             if success_count > 0:
-                # Reload the level to show the new doors
+                # Force reload the level from file to show the new doors
                 current_name = self.level_manager.current_level_name
                 if current_name:
-                    self.level_manager.load_level(current_name)
-                    self.load_level_interactables()
+                    # Reload from file, not memory
+                    if self.level_manager.load_level(current_name):
+                        self.load_level_interactables()
+                        print(f"Successfully reloaded level '{current_name}' from file to show new doors")
+                    else:
+                        print(f"Failed to reload level '{current_name}' from file")
                 
                 self.message_ui.show_message(
                     f"Created {success_count} door(s)!", 3000
@@ -357,11 +375,15 @@ class GameDemo:
             )
             
             if success:
-                # Reload the level to show the new interactables
+                # Force reload the level from file to show the new interactables
                 current_name = self.level_manager.current_level_name
                 if current_name:
-                    self.level_manager.load_level(current_name)
-                    self.load_level_interactables()
+                    # Reload from file, not memory
+                    if self.level_manager.load_level(current_name):
+                        self.load_level_interactables()
+                        print(f"Successfully reloaded level '{current_name}' from file to show new interactables")
+                    else:
+                        print(f"Failed to reload level '{current_name}' from file")
                 
                 self.message_ui.show_message(
                     f"Saved {len(self.selected_tiles)} tiles as permanent interactables!", 3000
@@ -382,18 +404,29 @@ class GameDemo:
         if self.paused:
             return
         
+        # Disable movement when password UI is visible
+        if self.password_ui.visible:
+            # Still update UI components and camera, but skip player movement
+            self.message_ui.update()
+            self.matrix_background.update()
+            return
+        
         # Handle player movement
         keys = pygame.key.get_pressed()
         old_x, old_y = self.player_x, self.player_y
         
+        # Check if shift is held for running
+        is_running = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        current_speed = self.player_speed * 2.0 if is_running else self.player_speed
+        
         if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.player_y -= self.player_speed
+            self.player_y -= current_speed
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.player_y += self.player_speed
+            self.player_y += current_speed
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.player_x -= self.player_speed
+            self.player_x -= current_speed
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.player_x += self.player_speed
+            self.player_x += current_speed
         
         # Check collision and revert if needed
         if self.level_manager.check_collision(self.player_x, self.player_y):
@@ -416,13 +449,16 @@ class GameDemo:
     
     def render(self):
         """Render the game"""
-        # Render matrix background
-        self.matrix_background.render(self.screen)
+        # Fill screen with black background
+        self.screen.fill((0, 0, 0))
         
         # Render level with layered sprites
         self.level_manager.render_level(debug_info=self.show_debug)
         
-        # Draw existing interactables when coordinates are shown
+        # Always draw proximity hints for nearby interactables (even when F3 is off)
+        self._draw_proximity_hints()
+        
+        # Draw existing interactables debug outlines when coordinates are shown
         if self.show_coordinates:
             self._draw_existing_interactables()
         
@@ -579,7 +615,7 @@ class GameDemo:
                 ((100, 100, 100), "Dark Gray: Collected/claimed"),
                 ((255, 0, 255), "Magenta: Locked doors"),
                 ((0, 255, 255), "Cyan: Open doors"),
-                ((255, 255, 0), "Yellow: Selected tiles"),
+                ((255, 255, 0), "Yellow: Selected tiles / Proximity hint"),
                 ((255, 255, 255), "White corner: Multi-tile group")
             ]
             
@@ -680,6 +716,7 @@ class GameDemo:
         font = pygame.font.Font(None, 20)
         instructions = [
             "WASD/Arrow Keys: Move player",
+            "Shift + Movement: Run (2x speed)",
             "N/Right: Next level",
             "P/Left: Previous level", 
             "R: Reload level",
@@ -698,6 +735,7 @@ class GameDemo:
             "C: Clear rules for testing",
             "I: Show interactables info (when coords shown)",
             "X: Copy mouse coords to console (when coords shown)",
+            "Z: Force reload level from file (when coords shown)",
             "Delete: Clean up duplicate interactables (when coords shown)",
             "[ / ]: Decrease/Increase speed (when speed debug on)",
             "\\: Reset speed to default (when speed debug on)",
@@ -867,7 +905,7 @@ class GameDemo:
             self.message_ui.show_message(message, 3000)
     
     def _draw_existing_interactables(self):
-        """Draw outlines around existing interactable tiles"""
+        """Draw outlines around existing interactable tiles (debug only)"""
         zoom = self.level_manager.camera.zoom
         camera = self.level_manager.camera
         
@@ -1066,6 +1104,94 @@ class GameDemo:
                 print(f"Updated door at ({obj.x}, {obj.y}) to require {total_required_rules} rules")
         
         print(f"Door requirements updated: {len(self.accumulated_rules)} accumulated + {current_level_rule_count} current = {total_required_rules} total")
+    
+    def _draw_proximity_hints(self):
+        """Draw transparent pale yellow border glow for nearby interactables"""
+        zoom = self.level_manager.camera.zoom
+        camera = self.level_manager.camera
+        
+        # Convert player position to tile coordinates for proper comparison
+        player_tile_x = int(self.player_x // 16)
+        player_tile_y = int(self.player_y // 16)
+        
+        for obj in interactable_manager.interactables:
+            # Check if player is adjacent to this interactable
+            is_player_nearby = False
+            
+            if hasattr(obj, 'tiles'):  # Multi-tile interactable
+                # Check if any tile in the group is adjacent to player
+                for tile_x, tile_y in obj.tiles:
+                    dx = abs(tile_x - player_tile_x)
+                    dy = abs(tile_y - player_tile_y)
+                    # Adjacent means 1 tile away (including diagonals)
+                    if dx <= 1 and dy <= 1:
+                        is_player_nearby = True
+                        break
+            else:  # Single-tile interactable
+                dx = abs(obj.x - player_tile_x)
+                dy = abs(obj.y - player_tile_y)
+                # Adjacent means 1 tile away (including diagonals)
+                if dx <= 1 and dy <= 1:
+                    is_player_nearby = True
+            
+            if is_player_nearby:
+                # Determine border color based on interaction state
+                if hasattr(obj, 'collected') and obj.collected:
+                    # Pale grey for collected/used interactables
+                    border_color = (180, 180, 180, 180)  # Transparent pale grey
+                elif hasattr(obj, 'is_open') and obj.is_open:
+                    # Pale grey for open doors
+                    border_color = (180, 180, 180, 180)  # Transparent pale grey
+                else:
+                    # More saturated yellow for unused interactables
+                    border_color = (255, 255, 50, 180)  # Transparent saturated yellow
+                
+                # Create a surface for alpha blending
+                border_surface = pygame.Surface((int(16 * zoom), int(16 * zoom)), pygame.SRCALPHA)
+                
+                if hasattr(obj, 'tiles'):  # Multi-tile interactable
+                    # Draw border glow around all tiles in the group
+                    for tile_x, tile_y in obj.tiles:
+                        world_x = tile_x * 16
+                        world_y = tile_y * 16
+                        screen_x, screen_y = camera.apply(world_x, world_y)
+                        
+                        rect = pygame.Rect(
+                            int(screen_x * zoom), 
+                            int(screen_y * zoom), 
+                            int(16 * zoom), 
+                            int(16 * zoom)
+                        )
+                        
+                        # Clear the border surface
+                        border_surface.fill((0, 0, 0, 0))
+                        
+                        # Draw thin border on the surface
+                        pygame.draw.rect(border_surface, border_color, border_surface.get_rect(), 2)
+                        
+                        # Blit to screen
+                        self.screen.blit(border_surface, rect)
+                        
+                else:  # Single-tile interactable
+                    world_x = obj.x * 16
+                    world_y = obj.y * 16
+                    screen_x, screen_y = camera.apply(world_x, world_y)
+                    
+                    rect = pygame.Rect(
+                        int(screen_x * zoom), 
+                        int(screen_y * zoom), 
+                        int(16 * zoom), 
+                        int(16 * zoom)
+                    )
+                    
+                    # Clear the border surface
+                    border_surface.fill((0, 0, 0, 0))
+                    
+                    # Draw thin border on the surface
+                    pygame.draw.rect(border_surface, border_color, border_surface.get_rect(), 2)
+                    
+                    # Blit to screen
+                    self.screen.blit(border_surface, rect)
     
     def run(self):
         """Main game loop"""
