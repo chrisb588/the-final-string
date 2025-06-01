@@ -642,7 +642,7 @@
       "collider": false
     },
     {
-      "name": "interactables",
+      "name": "objects",
       "tiles": [
         {
           "id": "38",
@@ -25344,6 +25344,93 @@
           "id": "154",
           "x": 35,
           "y": 41
+        }
+      ],
+      "collider": false
+    },
+    {
+      "name": "interactables",
+      "tiles": [
+        {
+          "x": 36,
+          "y": 40,
+          "type": "empty"
+        },
+        {
+          "x": 43,
+          "y": 21,
+          "type": "empty"
+        },
+        {
+          "x": 25,
+          "y": 19,
+          "type": "empty"
+        },
+        {
+          "x": 45,
+          "y": 23,
+          "type": "empty"
+        },
+        {
+          "x": 45,
+          "y": 42,
+          "type": "empty"
+        },
+        {
+          "x": 33,
+          "y": 19,
+          "type": "empty"
+        },
+        {
+          "x": 16,
+          "y": 22,
+          "type": "empty"
+        },
+        {
+          "x": 25,
+          "y": 44,
+          "type": "empty"
+        },
+        {
+          "x": 41,
+          "y": 34,
+          "type": "empty"
+        },
+        {
+          "x": 34,
+          "y": 28,
+          "type": "empty"
+        },
+        {
+          "x": 34,
+          "y": 31,
+          "type": "empty"
+        },
+        {
+          "x": 35,
+          "y": 37,
+          "type": "empty"
+        },
+        {
+          "x": 22,
+          "y": 44,
+          "type": "empty"
+        },
+        {
+          "x": 40,
+          "y": 24,
+          "type": "empty"
+        },
+        {
+          "x": 17,
+          "y": 27,
+          "type": "empty"
+        },
+        {
+          "x": 52,
+          "y": 27,
+          "type": "door",
+          "id": "25"
         }
       ],
       "collider": false

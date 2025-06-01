@@ -37,6 +37,7 @@ class EmptyInteractable(Interactable):
     
     def __init__(self, x: int, y: int, tile_id: str):
         super().__init__(x, y, tile_id)
+        self.collected = False  # Track if this has been interacted with
         
     def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
         """Show 'nothing here' message"""
@@ -47,6 +48,10 @@ class EmptyInteractable(Interactable):
             "Nothing useful here.",
             "This area appears to be empty."
         ]
+        
+        # Mark as collected/interacted with
+        self.collected = True
+        
         return {
             "type": "empty_interactable",
             "message": random.choice(messages)
@@ -232,6 +237,7 @@ class MultiTileEmptyInteractable(MultiTileInteractable):
     
     def __init__(self, tiles: Set[Tuple[int, int]], tile_id: str):
         super().__init__(tiles, tile_id, "empty")
+        self.collected = False  # Track if this has been interacted with
         
     def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
         """Show 'nothing here' message"""
@@ -242,10 +248,14 @@ class MultiTileEmptyInteractable(MultiTileInteractable):
             "Nothing useful in this spot.",
             "This place appears to be empty."
         ]
+        
+        # Mark as collected/interacted with
+        self.collected = True
+        
         return {
             "type": "empty_interactable",
             "message": random.choice(messages)
-            }
+        }
 
 class InteractableManager:
     """Manages all interactable objects in a level"""
@@ -394,9 +404,8 @@ class InteractableManager:
                         "y": y,
                         "type": "empty"
                     }
-                    # Only add tile_id if it's not empty (to prevent floating sprites)
-                    if tile_id:  # Only add tile_id for non-empty interactables
-                        new_tile["id"] = tile_id
+                    # Don't add tile_id for empty interactables to keep them invisible
+                    # This prevents them from overriding existing background sprites
                     
                     interactables_layer["tiles"].append(new_tile)
                     added_count += 1
@@ -411,9 +420,8 @@ class InteractableManager:
                         "type": "multi_empty",
                         "coordinates": coordinates
                     }
-                    # Only add tile_id if it's not empty (to prevent floating sprites)
-                    if tile_id:  # Only add tile_id for non-empty interactables
-                        new_tile["id"] = tile_id
+                    # Don't add tile_id for empty interactables to keep them invisible
+                    # This prevents them from overriding existing background sprites
                     
                     interactables_layer["tiles"].append(new_tile)
                     added_count += 1

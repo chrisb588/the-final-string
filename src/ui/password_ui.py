@@ -543,6 +543,7 @@ class PasswordUI:
         self.message = ""
         self.door = None
         self.callback = None
+        self.close_callback = None  # Callback for when UI is closed via X button
         self.collected_rules = []
         
         # UI dimensions
@@ -562,12 +563,13 @@ class PasswordUI:
         self.rules_text = None
         self.password_input = None
         
-    def show(self, rules: List[str], door, callback: Callable = None, collected_rules: List[str] = None, preserved_password: str = ""):
+    def show(self, rules: List[str], door, callback: Callable = None, collected_rules: List[str] = None, preserved_password: str = "", close_callback: Callable = None):
         """Show the password UI with given rules"""
         self.visible = True
         self.rules = rules
         self.door = door
         self.callback = callback
+        self.close_callback = close_callback  # New callback for when UI is closed
         self.collected_rules = collected_rules or []
         self.validation_results = {}
         self.message = "Enter a password that follows all the rules:"
@@ -616,6 +618,10 @@ class PasswordUI:
         
     def hide(self):
         """Hide the password UI"""
+        # Call close callback with current password if available
+        if self.close_callback and self.password_input:
+            self.close_callback(self.password_input.text)
+        
         self.visible = False
         self.rules_text = None
         self.password_input = None
@@ -714,7 +720,6 @@ class PasswordUI:
                 self.hide()
             else:
                 self.message = result.get("message", "Incorrect password")
-                self.validation_results = result.get("validation_results", {})
     
     def _update_validation(self):
         """Update real-time validation results"""
@@ -915,43 +920,125 @@ class RulesDisplayUI:
             self.font = pygame.font.Font(None, 18)
             self.title_font = pygame.font.Font(None, 20)
         
+        # Minimize/maximize state
+        self.is_minimized = False
+        self.minimize_button_size = 20
+        self.minimize_button_hovered = False
+        self.minimize_button_rect = None  # Will be set during render
+        
+    def handle_event(self, event):
+        """Handle input events for the rules display"""
+        if event.type == pygame.MOUSEMOTION:
+            mouse_pos = pygame.mouse.get_pos()
+            if self.minimize_button_rect:
+                self.minimize_button_hovered = self.minimize_button_rect.collidepoint(mouse_pos)
+            else:
+                self.minimize_button_hovered = False
+                
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if self.minimize_button_rect and self.minimize_button_rect.collidepoint(event.pos):
+                self.is_minimized = not self.is_minimized
+                return True  # Event was handled
+                
+        return False  # Event was not handled
+        
     def render(self, rules: List[str]):
         """Render the rules display"""
-        if not rules:
+        if not rules and not self.is_minimized:
+            # Don't show anything if no rules and not minimized
+            self.minimize_button_rect = None
             return
         
         text_color = self.ui_manager.text_color if self.ui_manager else (220,220,230)
         title_text_color = self.ui_manager.title_text_color if self.ui_manager else (230,230,240)
         bg_color = self.ui_manager.panel_bg_color if self.ui_manager else (45,45,55)
         border_color = self.ui_manager.panel_border_color if self.ui_manager else (80,80,90)
-            
+        
         # Position in top-left corner
         x = 15
         y = 15
         padding = 8
         
         # Draw title
-        title_text_content = f"Rules Found ({len(rules)}):" # Removed /4 as it's dynamic
+        title_text_content = f"Current Level Rules ({len(rules)}):" if not self.is_minimized else f"Rules ({len(rules)})"
         title_surface = self.title_font.render(title_text_content, True, title_text_color)
         
-        # Calculate dimensions
-        max_rule_width = max([self.font.size(f"• {rule}")[0] for rule in rules] + [0])
-        content_width = max(title_surface.get_width(), max_rule_width)
-        total_width = content_width + padding * 2
-        content_height = title_surface.get_height() + (len(rules) * (self.font.get_height() + 3)) # +3 for spacing
-        total_height = content_height + padding * 2
-        
-        # Draw background panel
-        bg_rect = pygame.Rect(x - padding, y - padding, total_width, total_height)
-        pygame.draw.rect(self.screen, bg_color, bg_rect, border_radius=5)
-        pygame.draw.rect(self.screen, border_color, bg_rect, 1, border_radius=5)
-        
-        # Draw title
-        self.screen.blit(title_surface, (x, y))
-        
-        # Draw rules
-        current_y = y + title_surface.get_height() + 5 # Spacing after title
-        for rule in rules:
-            rule_surface = self.font.render(f"• {rule}", True, text_color)
-            self.screen.blit(rule_surface, (x, current_y))
-            current_y += self.font.get_height() + 3 # Spacing between rules 
+        if self.is_minimized:
+            # Minimized view - just show title and minimize button
+            total_width = title_surface.get_width() + self.minimize_button_size + padding * 3
+            total_height = max(title_surface.get_height(), self.minimize_button_size) + padding * 2
+            
+            # Draw background panel
+            bg_rect = pygame.Rect(x - padding, y - padding, total_width, total_height)
+            pygame.draw.rect(self.screen, bg_color, bg_rect, border_radius=5)
+            pygame.draw.rect(self.screen, border_color, bg_rect, 1, border_radius=5)
+            
+            # Draw title
+            self.screen.blit(title_surface, (x, y))
+            
+            # Draw maximize button (+)
+            button_x = x + title_surface.get_width() + padding
+            button_y = y + (title_surface.get_height() - self.minimize_button_size) // 2
+            self.minimize_button_rect = pygame.Rect(button_x, button_y, self.minimize_button_size, self.minimize_button_size)
+            
+            button_color = (100, 200, 100) if self.minimize_button_hovered else (150, 150, 160)
+            button_bg_color = (70, 80, 70) if self.minimize_button_hovered else (60, 60, 70)
+            
+            pygame.draw.rect(self.screen, button_bg_color, self.minimize_button_rect, border_radius=3)
+            pygame.draw.rect(self.screen, button_color, self.minimize_button_rect, 2, border_radius=3)
+            
+            # Draw + symbol
+            center_x = self.minimize_button_rect.centerx
+            center_y = self.minimize_button_rect.centery
+            offset = 6
+            pygame.draw.line(self.screen, button_color, 
+                            (center_x - offset, center_y), (center_x + offset, center_y), 2)
+            pygame.draw.line(self.screen, button_color, 
+                            (center_x, center_y - offset), (center_x, center_y + offset), 2)
+            
+        else:
+            # Expanded view - show title, rules, and minimize button
+            if not rules:
+                self.minimize_button_rect = None
+                return
+                
+            # Calculate dimensions
+            max_rule_width = max([self.font.size(f"• {rule}")[0] for rule in rules] + [0])
+            content_width = max(title_surface.get_width(), max_rule_width)
+            button_width = self.minimize_button_size + padding
+            total_width = content_width + button_width + padding * 2
+            content_height = title_surface.get_height() + (len(rules) * (self.font.get_height() + 3)) # +3 for spacing
+            total_height = content_height + padding * 2
+            
+            # Draw background panel
+            bg_rect = pygame.Rect(x - padding, y - padding, total_width, total_height)
+            pygame.draw.rect(self.screen, bg_color, bg_rect, border_radius=5)
+            pygame.draw.rect(self.screen, border_color, bg_rect, 1, border_radius=5)
+            
+            # Draw minimize button (-)
+            button_x = x + content_width + padding
+            button_y = y
+            self.minimize_button_rect = pygame.Rect(button_x, button_y, self.minimize_button_size, self.minimize_button_size)
+            
+            button_color = (200, 100, 100) if self.minimize_button_hovered else (150, 150, 160)
+            button_bg_color = (80, 70, 70) if self.minimize_button_hovered else (60, 60, 70)
+            
+            pygame.draw.rect(self.screen, button_bg_color, self.minimize_button_rect, border_radius=3)
+            pygame.draw.rect(self.screen, button_color, self.minimize_button_rect, 2, border_radius=3)
+            
+            # Draw - symbol
+            center_x = self.minimize_button_rect.centerx
+            center_y = self.minimize_button_rect.centery
+            offset = 6
+            pygame.draw.line(self.screen, button_color, 
+                            (center_x - offset, center_y), (center_x + offset, center_y), 2)
+            
+            # Draw title
+            self.screen.blit(title_surface, (x, y))
+            
+            # Draw rules
+            current_y = y + title_surface.get_height() + 5 # Spacing after title
+            for rule in rules:
+                rule_surface = self.font.render(f"• {rule}", True, text_color)
+                self.screen.blit(rule_surface, (x, current_y))
+                current_y += self.font.get_height() + 3 # Spacing between rules 

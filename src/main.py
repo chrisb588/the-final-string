@@ -76,6 +76,7 @@ class GameDemo:
         self.is_transitioning = False
         self.accumulated_rules = []  # Rules from all previously completed levels
         self.used_rules = set()  # Track rules that have been used in any level
+        self.current_level_rules = []  # Rules found in the current level only (resets each level)
         
         # Setup programmatic interactables from configuration
         setup_level_interactables()
@@ -96,8 +97,19 @@ class GameDemo:
             if event.type == pygame.QUIT:
                 return False
             
+            # Handle other UI events
+            ui_handled = False
+            
             # Let password UI handle events first
             if self.password_ui.handle_event(event):
+                ui_handled = True
+            
+            # Let rules display UI handle events
+            if not ui_handled and self.rules_ui.handle_event(event):
+                ui_handled = True
+            
+            # If UI handled the event, skip the rest of the processing for this event
+            if ui_handled:
                 continue
             
             elif event.type == pygame.MOUSEMOTION:
@@ -724,7 +736,7 @@ class GameDemo:
         self._draw_instructions()
         
         # Render UI components
-        self.rules_ui.render(game_state.get_rules())
+        self.rules_ui.render(self.current_level_rules)
         self.message_ui.render()
         self.password_ui.render()
         
@@ -989,6 +1001,9 @@ class GameDemo:
     def load_level_interactables(self):
         """Load interactables for the current level"""
         if self.level_manager.current_level:
+            # Reset current level rules when loading a new level
+            self.current_level_rules = []
+            
             # Only clear game state rules if we're not transitioning from another level
             if not self.is_transitioning:
                 game_state.clear_rules_for_testing()
@@ -1061,8 +1076,13 @@ class GameDemo:
         interaction_type = result.get("type", "none")
         
         if interaction_type == "note_collected":
-            message = result.get("message", "Note collected!")
-            self.message_ui.show_message(message, 3000)
+            rule = result.get("rule", "")
+            if rule:
+                game_state.add_rule(rule, result.get("note_id"))
+                # Also add to current level rules
+                if rule not in self.current_level_rules:
+                    self.current_level_rules.append(rule)
+                self.message_ui.show_message(f"Rule collected: {rule}", 3000)
             
         elif interaction_type == "note_already_collected":
             message = result.get("message", "Already read this note.")
@@ -1088,7 +1108,7 @@ class GameDemo:
                 if rule not in combined_collected_rules:
                     combined_collected_rules.append(rule)
             
-            self.password_ui.show(rules, door, self.handle_password_result, combined_collected_rules, self.last_successful_password)
+            self.password_ui.show(rules, door, self.handle_password_result, combined_collected_rules, self.last_successful_password, self.handle_password_ui_close)
             
         elif interaction_type == "door_open":
             message = result.get("message", "Door is open.")
@@ -1425,6 +1445,12 @@ class GameDemo:
                     
                     # Blit to screen
                     self.screen.blit(border_surface, rect)
+    
+    def handle_password_ui_close(self, password: str):
+        """Handle password UI being closed via X button - save the current password"""
+        if password:
+            self.last_successful_password = password
+            print(f"Password saved when closing UI: {password}")
     
     def run(self):
         """Main game loop"""

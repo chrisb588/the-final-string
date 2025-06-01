@@ -9332,6 +9332,150 @@
           "type": "door",
           "id": "25",
           "next_level": "level-2"
+        },
+        {
+          "x": 40,
+          "y": 17,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 32,
+          "y": 20,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              32,
+              20
+            ],
+            [
+              33,
+              20
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 60,
+          "y": 15,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              60,
+              15
+            ],
+            [
+              61,
+              15
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 26,
+          "y": 2,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 2,
+          "y": 14,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              2,
+              14
+            ],
+            [
+              3,
+              14
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 28,
+          "y": 33,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              28,
+              33
+            ],
+            [
+              29,
+              33
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 66,
+          "y": 17,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              66,
+              17
+            ],
+            [
+              67,
+              17
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 49,
+          "y": 39,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 52,
+          "y": 39,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 68,
+          "y": 3,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 30,
+          "y": 2,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 72,
+          "y": 9,
+          "type": "empty",
+          "id": "25"
+        },
+        {
+          "x": 21,
+          "y": 14,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              21,
+              14
+            ],
+            [
+              20,
+              14
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 23,
+          "y": 19,
+          "type": "empty",
+          "id": "25"
         }
       ],
       "collider": false
