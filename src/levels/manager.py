@@ -56,18 +56,6 @@ class LayeredTileRenderer:
         self.sprite_sheet_path = sprite_sheet_path
         self.sprite_sheets = {}
         self.tile_surfaces = {}  # Cache for individual tile surfaces
-        
-        # Layer depth mapping - lower numbers render first (background)
-        # Using wider gaps to accommodate duplicate layers with fractional depths
-        self.layer_depths = {
-            "ground": 0,
-            "walls": 20,
-            "objects-nocollision": 40,
-            "objects-collision": 60,
-            "interactables": 80,
-            "npc": 100,
-            "foreground": 120,  # For any foreground elements
-        }
     
     def load_sprite_sheet(self, filename: str) -> Optional[pygame.Surface]:
         """Load a sprite sheet image"""
@@ -304,16 +292,16 @@ class LayeredLevelManager:
         if not self.current_level:
             return
         
-        # Process layers in the order they appear in the raw data (maintains duplicates)
-        layer_index = 0
-        for layer_data in self.current_level.raw_data.get('layers', []):
-            layer_name = layer_data['name']
-            base_depth = self.renderer.get_layer_depth(layer_name)
+        # Process layers in reverse order so first layer in JSON renders last
+        # This gives us the exact ordering from your level data
+        for layer_index, layer_data in enumerate(reversed(self.current_level.raw_data.get('layers', []))):
+            # Use layer index directly as depth - higher index = renders later
+            depth = layer_index * 10  # Use larger gaps between layers
             
-            # Add layer index to handle duplicates (higher index = renders later)
-            actual_depth = base_depth + (layer_index * 0.1)
+            # Get layer name for filtering
+            layer_name = layer_data.get('name', '')
             
-            # Create sprites for each tile in this specific layer instance
+            # Create sprites for each tile in this layer
             for tile_data in layer_data['tiles']:
                 # Skip creating sprites for empty interactables (they shouldn't be visible)
                 if (layer_name == "interactables" and 
@@ -333,24 +321,16 @@ class LayeredLevelManager:
                 )
                 
                 if tile_surface:
-                    # Calculate world position
                     world_x, world_y = self.current_level.tile_to_pixel(
                         tile_data['x'], tile_data['y']
                     )
                     
-                    # Create tile sprite with layer info
                     tile_sprite = TileSprite(
-                        tile_data, world_x, world_y, tile_surface, actual_depth
+                        tile_data, world_x, world_y, tile_surface, depth
                     )
                     
-                    # Store additional layer info for debugging/identification
-                    tile_sprite.layer_name = layer_name
-                    tile_sprite.layer_index = layer_index
-                    
-                    # Add to layered group with computed depth
-                    self.tile_sprites.add(tile_sprite, layer=actual_depth)
-            
-            layer_index += 1
+                    # Add to layered group with layer index as depth
+                    self.tile_sprites.add(tile_sprite, layer=depth)
     
     def load_next_level(self) -> bool:
         """Load the next level in the list"""

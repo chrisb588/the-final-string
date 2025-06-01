@@ -43,17 +43,19 @@ class Level:
         self.starting_point = self._parse_starting_point(data)
         
         # Process layers
-        self.layers = {}
-        self.layer_order = []
+        self.layers = {}  # Change to store with unique IDs
+        self.layer_order = []  # Keep original order
         
-        for layer_data in data.get('layers', []):
+        for idx, layer_data in enumerate(data.get('layers', [])):
+            # Create unique layer ID using name and index
+            layer_id = f"{layer_data['name']}_{idx}"
             layer = TileLayer(
                 name=layer_data['name'],
                 tiles=layer_data['tiles'],
                 collider=layer_data.get('collider', False)
             )
-            self.layers[layer.name] = layer
-            self.layer_order.append(layer.name)
+            self.layers[layer_id] = layer
+            self.layer_order.append(layer_id)
     
     def get_layer(self, name: str) -> Optional[TileLayer]:
         """Get a specific layer by name"""
@@ -64,9 +66,8 @@ class Level:
         return [layer for layer in self.layers.values() if layer.collider]
     
     def get_render_layers(self) -> List[TileLayer]:
-        """Get all layers in reverse render order (last JSON layer first)"""
-        # Return layers in reverse order of how they were stored
-        return [self.layers[name] for name in reversed(self.layer_order) if name in self.layers]
+        """Get all layers in exact JSON order"""
+        return [self.layers[layer_id] for layer_id in self.layer_order]
     
     def is_collision_at(self, x: int, y: int) -> bool:
         """Check if there's a collision at the given tile coordinates"""
