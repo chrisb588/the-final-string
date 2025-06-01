@@ -32,15 +32,15 @@ class Menu:
         
         # Initialize all states
         self.states = {
-            STATE_LOADING: LoadingMenuState(self.screen, self.terminal, self.crt_filter),
+            STATE_MENU_LOADING: LoadingMenuState(self.screen, self.terminal, self.crt_filter),
             STATE_MENU: MenuOptionsState(self.screen, self.terminal, self.crt_filter),
             STATE_PRELUDE: PreludeState(),
-            STATE_HOW_TO_PLAY: HowToPlayState(self.screen, self.terminal, self.crt_filter),
-            STATE_SETTINGS: SettingsState(self.screen, self.terminal, self.crt_filter),
-            STATE_CREDITS: CreditsState(self.screen, self.terminal, self.crt_filter)
+            STATE_MENU_HOW_TO_PLAY: HowToPlayState(self.screen, self.terminal, self.crt_filter),
+            STATE_MENU_SETTINGS: SettingsState(self.screen, self.terminal, self.crt_filter),
+            STATE_MENU_CREDITS: CreditsState(self.screen, self.terminal, self.crt_filter)
         }
         
-        self.current_state = STATE_LOADING
+        self.current_state = STATE_MENU_LOADING
         self.states[self.current_state].enter()
         
         self.clock = pygame.time.Clock()
