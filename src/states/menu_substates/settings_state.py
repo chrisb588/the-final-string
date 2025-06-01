@@ -17,21 +17,22 @@ import pygame
 class SettingsState(BaseMenuState):
     def __init__(self, screen, terminal, crt_filter):
         super().__init__(screen, terminal, crt_filter)
-        self.menu_font = pygame.font.Font(FONT_PATH, MENU_FONT_SIZE)
-        self.selected_setting = 0
-        self.settings = ["Volume", "Screen Size", "Back"]
-        
-    def enter(self):
-        self.terminal.add_line("> Settings")
-        self.terminal.add_line("> Press ESC to return to main menu")
+        self.selected_item = 0
         
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_UP, pygame.K_w):
-                self.selected_setting = (self.selected_setting - 1) % len(self.settings)
-            elif event.key in (pygame.K_DOWN, pygame.K_s):
-                self.selected_setting = (self.selected_setting + 1) % len(self.settings)
-            elif event.key == pygame.K_RETURN:
-                if self.settings[self.selected_setting] == "Back":
-                    return STATE_MENU
-        return super().handle_event(event)
+            if event.key == pygame.K_ESCAPE:
+                return STATE_MENU
+        return None
+    
+    def enter(self):
+        """Display all menu text at once in terminal style"""
+        self.terminal.clear()
+
+        self.terminal.add_line("Press Esc to go back to main menu")
+            
+    def render(self):
+        self.surface.fill(BG_COLOR)
+        self.terminal.render(self.surface, (20, SCREEN_HEIGHT - 50))
+        self.crt_filter.render(self.surface)
+        pygame.display.flip()

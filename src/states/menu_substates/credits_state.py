@@ -72,7 +72,7 @@ class CreditsState(BaseMenuState):
         self.terminal.add_line("")
         self.terminal.add_line(f"Credits (Page {self.current_page + 1}/{self.get_total_pages()})")
         self.terminal.add_line("Use A/D or Arrow Left/Right to navigate pages")
-        self.terminal.add_line("Press ESC to return to menu")
+        self.terminal.add_line("Press ESC to go back to main menu")
             
     def render(self):
         self.surface.fill(BG_COLOR)
