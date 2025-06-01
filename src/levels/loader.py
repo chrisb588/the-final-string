@@ -83,7 +83,7 @@ class Level:
                             not tile_data.get("rule")):
                             continue
                         # Multi-tile empty interactables should not cause collision
-                        if (tile_data.get("type") == "multi_note" and 
+                        if (tile_data.get("type") == "multi_empty" and 
                             not tile_data.get("rule")):
                             continue
                 

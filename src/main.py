@@ -484,6 +484,30 @@ class GameDemo:
                 f"Mouse: ({self.mouse_tile_x}, {self.mouse_tile_y}) | Screen: ({self.mouse_x}, {self.mouse_y})",
             ]
             
+            # Get tile ID information at mouse position
+            try:
+                mouse_world_x = self.mouse_tile_x * 16
+                mouse_world_y = self.mouse_tile_y * 16
+                sprites_at_mouse = self.level_manager.get_sprites_at_position(mouse_world_x, mouse_world_y)
+                
+                if sprites_at_mouse:
+                    # Show tile IDs for all sprites at this position (from background to foreground)
+                    tile_ids = []
+                    for sprite in sprites_at_mouse:
+                        if hasattr(sprite, 'tile_data') and 'id' in sprite.tile_data:
+                            tile_id = sprite.tile_data['id']
+                            layer_depth = sprite.layer_depth
+                            tile_ids.append(f"ID:{tile_id}(L{layer_depth})")
+                    
+                    if tile_ids:
+                        debug_info.append(f"Tile IDs: {', '.join(tile_ids)}")
+                    else:
+                        debug_info.append("Tile IDs: No sprites with IDs")
+                else:
+                    debug_info.append("Tile IDs: No sprites at position")
+            except Exception as e:
+                debug_info.append(f"Tile IDs: Error getting sprite info")
+            
             # Check if mouse is over an interactable (with safety check)
             try:
                 mouse_interactable = interactable_manager.get_interactable_at(self.mouse_tile_x, self.mouse_tile_y)
@@ -759,11 +783,29 @@ class GameDemo:
         elif interaction_type == "door_open":
             message = result.get("message", "Door is open.")
             self.message_ui.show_message(message, 2000)
+            
+        elif interaction_type == "level_transition":
+            # Handle level transition
+            next_level = result.get("next_level")
+            message = result.get("message", f"Entering {next_level}...")
+            self.message_ui.show_message(message, 2000)
+            
+            if next_level:
+                self.transition_to_level(next_level)
     
     def handle_password_result(self, result: Dict[str, Any]):
         """Handle password attempt results"""
         if result.get("success", False):
-            self.message_ui.show_message("Door opened successfully!", 3000)
+            # Check if this is a level transition
+            if result.get("type") == "level_transition":
+                next_level = result.get("next_level")
+                message = result.get("message", f"Entering {next_level}...")
+                self.message_ui.show_message(message, 2000)
+                
+                if next_level:
+                    self.transition_to_level(next_level)
+            else:
+                self.message_ui.show_message("Door opened successfully!", 3000)
         else:
             message = result.get("message", "Password incorrect.")
             self.message_ui.show_message(message, 3000)
@@ -922,6 +964,31 @@ class GameDemo:
             self.message_ui.show_message("Duplicate interactables cleaned up!", 3000)
         else:
             self.message_ui.show_message("Failed to clean up duplicates!", 2000)
+    
+    def transition_to_level(self, level_name: str):
+        """Transition to a new level"""
+        try:
+            # Load the new level
+            if self.level_manager.load_level(level_name):
+                # Reset player position to the new level's starting point
+                start_x, start_y = self.level_manager.get_level_starting_point()
+                self.player_x = start_x
+                self.player_y = start_y
+                
+                # Load interactables for the new level
+                self.load_level_interactables()
+                
+                # Clear any existing UI
+                self.password_ui.hide()
+                
+                print(f"Successfully transitioned to level: {level_name}")
+                self.message_ui.show_message(f"Welcome to {level_name}!", 3000)
+            else:
+                print(f"Failed to load level: {level_name}")
+                self.message_ui.show_message(f"Failed to load {level_name}", 3000)
+        except Exception as e:
+            print(f"Error transitioning to level {level_name}: {e}")
+            self.message_ui.show_message(f"Error loading {level_name}", 3000)
     
     def run(self):
         """Main game loop"""

@@ -149,20 +149,15 @@ class Note(Interactable):
 class Door(Interactable):
     """A door that requires password validation"""
     
-    def __init__(self, x: int, y: int, tile_id: str, required_rules: int = 4):
+    def __init__(self, x: int, y: int, tile_id: str, required_rules: int = 4, next_level: str = None):
         super().__init__(x, y, tile_id)
         self.required_rules = required_rules
         self.is_open = False
         self.level_metadata = None
+        self.next_level = next_level  # Level to transition to when walking through
         
     def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
-        """Handle door interaction - always show password prompt"""
-        if self.is_open:
-            return {
-                "type": "door_open",
-                "message": "The door is already open. You can pass through."
-            }
-        
+        """Handle door interaction - show password prompt"""
         # Get collected rules from game state
         collected_count = game_state.get_rules_count()
         collected_rules = game_state.get_rules()
@@ -204,12 +199,22 @@ class Door(Interactable):
         
         if is_valid:
             self.is_open = True
-            return {
-                "type": "door_opened",
-                "message": "Correct! The door opens.",
-                "success": True,
-                "validation_results": validation_results
-            }
+            # If this door has a next_level, trigger level transition
+            if self.next_level:
+                return {
+                    "type": "level_transition",
+                    "message": f"Correct! Entering {self.next_level}...",
+                    "success": True,
+                    "next_level": self.next_level,
+                    "validation_results": validation_results
+                }
+            else:
+                return {
+                    "type": "door_opened",
+                    "message": "Correct! The door opens.",
+                    "success": True,
+                    "validation_results": validation_results
+                }
         else:
             return {
                 "type": "door_failed",
@@ -558,7 +563,10 @@ class InteractableManager:
             else:
                 required_rules = tile_data.get("required_rules", 4)
             
-            door = Door(x, y, tile_id, required_rules)
+            # Get next_level parameter for level transitions
+            next_level = tile_data.get("next_level", None)
+            
+            door = Door(x, y, tile_id, required_rules, next_level)
             door.set_level_metadata(self.level_metadata)
             return door
         
@@ -661,7 +669,8 @@ class InteractableManager:
             # Door
             x, y = coordinates[0]
             required_rules = interactable_def.get("required_rules", 4)
-            door = Door(x, y, tile_id, required_rules)
+            next_level = interactable_def.get("next_level", None)
+            door = Door(x, y, tile_id, required_rules, next_level)
             door.set_level_metadata(self.level_metadata)
             return door
         
