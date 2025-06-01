@@ -1,10 +1,11 @@
 import pygame
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Set, Tuple, List
 from levels.manager import LayeredLevelManager
 from game_state import game_state
 from entities.interactables import interactable_manager
 from ui.password_ui import PasswordUI, MessageUI, RulesDisplayUI
+from interactable_config import setup_level_interactables
 
 class GameDemo:
     """Demo showing the layered tileset renderer in action"""
@@ -13,15 +14,42 @@ class GameDemo:
         # Initialize Pygame
         pygame.init()
         
-        # Screen setup
+        # Screen settings
         self.screen_width = 1024
-        self.screen_height = 572
+        self.screen_height = 768
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        pygame.display.set_caption("Layered Tileset Renderer Demo")
+        pygame.display.set_caption("Layered Tileset Demo")
         
-        # Clock for FPS control
-        self.clock = pygame.time.Clock()
+        # Game settings
         self.fps = 60
+        self.clock = pygame.time.Clock()
+        
+        # Player settings
+        self.player_x = 100
+        self.player_y = 100
+        self.player_speed = 2
+        self.min_speed = 0.5
+        self.max_speed = 10.0
+        self.speed_increment = 0.5
+        
+        # Debug and control flags
+        self.show_debug = False
+        self.smooth_camera = True
+        self.paused = False
+        self.show_speed_debug = False
+        
+        # Mouse tracking for debug coordinates
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.mouse_tile_x = 0
+        self.mouse_tile_y = 0
+        self.show_coordinates = False
+        
+        # Interactable creation mode
+        self.creation_mode = False
+        self.selected_tiles = set()  # Store selected tile coordinates
+        self.creation_type = "note"  # "note" or "door" - what type to create
+        self.delete_mode = False  # Whether we're in delete mode
         
         # Initialize level manager with layered rendering
         self.level_manager = LayeredLevelManager(
@@ -29,20 +57,13 @@ class GameDemo:
             sprite_sheet_path="assets/images/spritesheets"
         )
         
-        # Player for camera following (simple representation)
-        self.player_x = 100
-        self.player_y = 100
-        self.player_speed = 3
-        
-        # Debug and control flags
-        self.show_debug = False
-        self.smooth_camera = True
-        self.paused = False
-        
         # UI components
         self.password_ui = PasswordUI(self.screen)
         self.message_ui = MessageUI(self.screen)
         self.rules_ui = RulesDisplayUI(self.screen)
+        
+        # Setup programmatic interactables from configuration
+        setup_level_interactables()
         
         # Interaction callback not needed - handled directly in interact_with_objects
         
@@ -63,6 +84,15 @@ class GameDemo:
             # Let password UI handle events first
             if self.password_ui.handle_event(event):
                 continue
+            
+            elif event.type == pygame.MOUSEMOTION:
+                # Update mouse position for debug coordinates
+                self.mouse_x, self.mouse_y = event.pos
+                self._update_mouse_tile_coords()
+            
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Left click
+                    self._handle_mouse_click(event.pos)
             
             elif event.type == pygame.KEYDOWN:
                 # Level navigation
@@ -94,8 +124,63 @@ class GameDemo:
                 elif event.key == pygame.K_F2:
                     self.smooth_camera = not self.smooth_camera
                 
+                elif event.key == pygame.K_F3:
+                    # Toggle coordinate display
+                    self.show_coordinates = not self.show_coordinates
+                
+                elif event.key == pygame.K_F4:
+                    # Toggle creation mode
+                    self.creation_mode = not self.creation_mode
+                    if not self.creation_mode:
+                        self.selected_tiles.clear()
+                        self.delete_mode = False
+                    self.message_ui.show_message(
+                        f"Creation mode: {'ON' if self.creation_mode else 'OFF'} ({self.creation_type})", 2000
+                    )
+                
+                elif event.key == pygame.K_TAB and self.creation_mode:
+                    # Cycle between note, door, and delete modes
+                    if self.creation_type == "note":
+                        self.creation_type = "door"
+                        self.delete_mode = False
+                    elif self.creation_type == "door":
+                        self.creation_type = "delete"
+                        self.delete_mode = True
+                    else:  # delete mode
+                        self.creation_type = "note"
+                        self.delete_mode = False
+                    
+                    # Clear selection when switching modes
+                    self.selected_tiles.clear()
+                    
+                    mode_text = "DELETE" if self.delete_mode else self.creation_type.upper()
+                    self.message_ui.show_message(f"Creation mode: {mode_text}", 2000)
+                
+                elif event.key == pygame.K_F5:
+                    # Toggle speed debug
+                    self.show_speed_debug = not self.show_speed_debug
+                    self.message_ui.show_message(
+                        f"Speed debug: {'ON' if self.show_speed_debug else 'OFF'}", 2000
+                    )
+                
                 elif event.key == pygame.K_SPACE:
                     self.paused = not self.paused
+                
+                # Speed controls (when speed debug is on)
+                elif event.key == pygame.K_LEFTBRACKET and self.show_speed_debug:
+                    # Decrease speed with [
+                    self.player_speed = max(self.min_speed, self.player_speed - self.speed_increment)
+                    self.message_ui.show_message(f"Speed: {self.player_speed:.1f}", 1000)
+                
+                elif event.key == pygame.K_RIGHTBRACKET and self.show_speed_debug:
+                    # Increase speed with ]
+                    self.player_speed = min(self.max_speed, self.player_speed + self.speed_increment)
+                    self.message_ui.show_message(f"Speed: {self.player_speed:.1f}", 1000)
+                
+                elif event.key == pygame.K_BACKSLASH and self.show_speed_debug:
+                    # Reset speed to default with \
+                    self.player_speed = 2.0
+                    self.message_ui.show_message(f"Speed reset to: {self.player_speed:.1f}", 1000)
                 
                 # Zoom controls
                 elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
@@ -132,8 +217,146 @@ class GameDemo:
                     # Clear rules for testing
                     game_state.clear_rules_for_testing()
                     self.message_ui.show_message("Rules cleared for testing!", 2000)
+                
+                elif event.key == pygame.K_i and self.show_coordinates:
+                    # Show programmatic interactables info for current level
+                    self._show_interactables_info()
+                
+                elif event.key == pygame.K_x and self.show_coordinates:
+                    # Copy current mouse coordinates to console
+                    self._copy_mouse_coordinates()
+                
+                elif event.key == pygame.K_DELETE and self.show_coordinates:
+                    # Clean up duplicate interactables
+                    self._clean_duplicate_interactables()
+                
+                elif event.key == pygame.K_RETURN and self.creation_mode:
+                    # Create interactable from selected tiles and save to JSON (not in delete mode)
+                    if not self.delete_mode:
+                        self._create_and_save_interactable()
+                    else:
+                        self.message_ui.show_message("Cannot create in delete mode - use TAB to switch modes", 2000)
         
         return True
+    
+    def _update_mouse_tile_coords(self):
+        """Update mouse tile coordinates based on current mouse position"""
+        if not self.level_manager.current_level:
+            self.mouse_tile_x = 0
+            self.mouse_tile_y = 0
+            return
+        
+        try:
+            # Convert screen coordinates to world coordinates
+            camera = self.level_manager.camera
+            world_x = (self.mouse_x / camera.zoom) + camera.x
+            world_y = (self.mouse_y / camera.zoom) + camera.y
+            
+            # Convert world coordinates to tile coordinates
+            self.mouse_tile_x = int(world_x // 16)
+            self.mouse_tile_y = int(world_y // 16)
+        except (ZeroDivisionError, AttributeError) as e:
+            # Fallback to safe values if there's an error
+            self.mouse_tile_x = 0
+            self.mouse_tile_y = 0
+            print(f"Error updating mouse coordinates: {e}")
+    
+    def _handle_mouse_click(self, pos):
+        """Handle mouse click events"""
+        # Safety check - make sure we have valid coordinates
+        if not hasattr(self, 'mouse_tile_x') or not hasattr(self, 'mouse_tile_y'):
+            self._update_mouse_tile_coords()
+        
+        # Additional safety check for level
+        if not self.level_manager.current_level:
+            return
+        
+        if self.creation_mode:
+            if self.delete_mode:
+                # Delete interactable at clicked position
+                success = interactable_manager.delete_interactable_at_position(
+                    self.mouse_tile_x, self.mouse_tile_y
+                )
+                if success:
+                    # Reload the level to show the changes
+                    current_name = self.level_manager.current_level_name
+                    if current_name:
+                        self.level_manager.load_level(current_name)
+                        self.load_level_interactables()
+                    self.message_ui.show_message(f"Deleted interactable at ({self.mouse_tile_x}, {self.mouse_tile_y})", 2000)
+                else:
+                    self.message_ui.show_message("No interactable found at this position", 1500)
+            else:
+                # Add/remove tile from selection
+                tile_coord = (self.mouse_tile_x, self.mouse_tile_y)
+                if tile_coord in self.selected_tiles:
+                    self.selected_tiles.remove(tile_coord)
+                else:
+                    self.selected_tiles.add(tile_coord)
+        else:
+            # Try to interact with clicked tile
+            try:
+                result = interactable_manager.interact_at(
+                    self.mouse_tile_x, self.mouse_tile_y, 
+                    self.player_x, self.player_y
+                )
+                if result.get("type") != "none":
+                    self.handle_interaction(result)
+            except Exception as e:
+                print(f"Error during interaction: {e}")
+                self.message_ui.show_message("Error during interaction", 2000)
+    
+    def _create_and_save_interactable(self):
+        """Create interactable from selected tiles and save permanently to JSON"""
+        if not self.selected_tiles:
+            self.message_ui.show_message("No tiles selected!", 2000)
+            return
+        
+        if self.creation_type == "door":
+            # Create door(s) - each selected tile becomes a separate door
+            success_count = 0
+            for tile_x, tile_y in self.selected_tiles:
+                # Don't specify required_rules - let the system use level's rule_count
+                success = interactable_manager.save_door_to_level_file(
+                    tile_x, tile_y  # Remove the hardcoded required_rules=3
+                )
+                if success:
+                    success_count += 1
+            
+            if success_count > 0:
+                # Reload the level to show the new doors
+                current_name = self.level_manager.current_level_name
+                if current_name:
+                    self.level_manager.load_level(current_name)
+                    self.load_level_interactables()
+                
+                self.message_ui.show_message(
+                    f"Created {success_count} door(s)!", 3000
+                )
+            else:
+                self.message_ui.show_message("Failed to create doors!", 2000)
+        else:
+            # Create note interactables (existing functionality)
+            success = interactable_manager.save_interactables_to_level_file(
+                self.selected_tiles.copy(), 
+                tile_id="25"
+            )
+            
+            if success:
+                # Reload the level to show the new interactables
+                current_name = self.level_manager.current_level_name
+                if current_name:
+                    self.level_manager.load_level(current_name)
+                    self.load_level_interactables()
+                
+                self.message_ui.show_message(
+                    f"Saved {len(self.selected_tiles)} tiles as permanent interactables!", 3000
+                )
+            else:
+                self.message_ui.show_message("Failed to save interactables!", 2000)
+        
+        # Clear selection
+        self.selected_tiles.clear()
     
     def _toggle_layer(self, layer_name: str):
         """Toggle visibility of a specific layer (demo feature)"""
@@ -182,6 +405,14 @@ class GameDemo:
         # Render level with layered sprites
         self.level_manager.render_level(debug_info=self.show_debug)
         
+        # Draw existing interactables when coordinates are shown
+        if self.show_coordinates:
+            self._draw_existing_interactables()
+        
+        # Draw selected tiles in creation mode
+        if self.creation_mode:
+            self._draw_selected_tiles()
+        
         # Draw player (simple representation) - account for zoom
         player_screen_x, player_screen_y = self.level_manager.camera.apply(
             self.player_x, self.player_y
@@ -195,6 +426,14 @@ class GameDemo:
             (int(player_screen_x * zoom), int(player_screen_y * zoom)), 
             player_radius
         )
+        
+        # Draw coordinate debug info
+        if self.show_coordinates:
+            self._draw_coordinate_debug()
+        
+        # Draw speed debug info
+        if self.show_speed_debug:
+            self._draw_speed_debug()
         
         # Draw zoom level indicator
         self._draw_zoom_indicator()
@@ -210,6 +449,172 @@ class GameDemo:
         # Update display
         pygame.display.flip()
     
+    def _draw_selected_tiles(self):
+        """Draw overlay for selected tiles in creation mode"""
+        zoom = self.level_manager.camera.zoom
+        camera = self.level_manager.camera
+        
+        for tile_x, tile_y in self.selected_tiles:
+            # Convert tile coordinates to screen coordinates
+            world_x = tile_x * 16
+            world_y = tile_y * 16
+            screen_x, screen_y = camera.apply(world_x, world_y)
+            
+            # Draw selection overlay
+            rect = pygame.Rect(
+                int(screen_x * zoom), 
+                int(screen_y * zoom), 
+                int(16 * zoom), 
+                int(16 * zoom)
+            )
+            pygame.draw.rect(self.screen, (255, 255, 0, 128), rect, 2)  # Yellow border
+    
+    def _draw_coordinate_debug(self):
+        """Draw coordinate debug information"""
+        try:
+            font = pygame.font.Font(None, 24)
+            small_font = pygame.font.Font(None, 18)
+            
+            # Player coordinates
+            player_tile_x = int(self.player_x // 16)
+            player_tile_y = int(self.player_y // 16)
+            
+            debug_info = [
+                f"Player: ({player_tile_x}, {player_tile_y}) | Pixel: ({int(self.player_x)}, {int(self.player_y)})",
+                f"Mouse: ({self.mouse_tile_x}, {self.mouse_tile_y}) | Screen: ({self.mouse_x}, {self.mouse_y})",
+            ]
+            
+            # Check if mouse is over an interactable (with safety check)
+            try:
+                mouse_interactable = interactable_manager.get_interactable_at(self.mouse_tile_x, self.mouse_tile_y)
+                if mouse_interactable:
+                    if hasattr(mouse_interactable, 'tiles'):
+                        debug_info.append(f"Mouse over: Multi-tile {mouse_interactable.__class__.__name__} ({len(mouse_interactable.tiles)} tiles)")
+                    else:
+                        debug_info.append(f"Mouse over: {mouse_interactable.__class__.__name__}")
+            except Exception as e:
+                debug_info.append(f"Mouse over: Error checking interactable")
+            
+            if self.creation_mode:
+                debug_info.append(f"Selected tiles: {len(self.selected_tiles)}")
+                mode_text = "DELETE" if self.delete_mode else self.creation_type.upper()
+                debug_info.append(f"Creation mode: {mode_text}")
+                if self.selected_tiles and not self.delete_mode:
+                    # Show how many groups the selection would create
+                    try:
+                        if self.creation_type == "door":
+                            debug_info.append(f"Would create {len(self.selected_tiles)} door(s)")
+                        else:
+                            groups = self._group_adjacent_tiles(self.selected_tiles)
+                            debug_info.append(f"Would create {len(groups)} interactable(s)")
+                    except:
+                        debug_info.append(f"Would create interactable(s)")
+                    debug_info.append(f"Selection: {list(self.selected_tiles)[:3]}{'...' if len(self.selected_tiles) > 3 else ''}")
+                elif self.delete_mode:
+                    debug_info.append("Click on interactables to delete them")
+            
+            y_offset = 60  # Start below zoom indicator
+            for text in debug_info:
+                # Render with outline for visibility
+                text_surface = font.render(text, True, (255, 255, 255))
+                outline_surface = font.render(text, True, (0, 0, 0))
+                
+                self.screen.blit(outline_surface, (11, y_offset + 1))
+                self.screen.blit(text_surface, (10, y_offset))
+                y_offset += 25
+            
+            # Add color legend
+            y_offset += 10
+            legend_title = font.render("Interactable Colors:", True, (255, 255, 255))
+            legend_title_outline = font.render("Interactable Colors:", True, (0, 0, 0))
+            self.screen.blit(legend_title_outline, (11, y_offset + 1))
+            self.screen.blit(legend_title, (10, y_offset))
+            y_offset += 25
+            
+            # Color legend entries
+            legend_entries = [
+                ((0, 255, 0), "Green: Notes with rules"),
+                ((150, 150, 150), "Light Gray: Empty interactables"),
+                ((100, 100, 100), "Dark Gray: Collected/claimed"),
+                ((255, 0, 255), "Magenta: Locked doors"),
+                ((0, 255, 255), "Cyan: Open doors"),
+                ((255, 255, 0), "Yellow: Selected tiles"),
+                ((255, 255, 255), "White corner: Multi-tile group")
+            ]
+            
+            for color, description in legend_entries:
+                # Draw color box
+                color_rect = pygame.Rect(10, y_offset, 12, 12)
+                pygame.draw.rect(self.screen, color, color_rect)
+                pygame.draw.rect(self.screen, (0, 0, 0), color_rect, 1)
+                
+                # Draw description
+                text_surface = small_font.render(description, True, (255, 255, 255))
+                outline_surface = small_font.render(description, True, (0, 0, 0))
+                self.screen.blit(outline_surface, (26, y_offset - 1))
+                self.screen.blit(text_surface, (25, y_offset - 2))
+                y_offset += 18
+                
+        except Exception as e:
+            # Fallback if there's any error in debug display
+            print(f"Error in coordinate debug display: {e}")
+    
+    def _group_adjacent_tiles(self, tiles: Set[Tuple[int, int]]) -> List[Set[Tuple[int, int]]]:
+        """Group adjacent tiles together (for preview in debug display)"""
+        if not tiles:
+            return []
+        
+        remaining_tiles = tiles.copy()
+        groups = []
+        
+        while remaining_tiles:
+            # Start a new group with any remaining tile
+            current_group = set()
+            to_process = [remaining_tiles.pop()]
+            
+            while to_process:
+                current_tile = to_process.pop()
+                if current_tile in current_group:
+                    continue
+                
+                current_group.add(current_tile)
+                x, y = current_tile
+                
+                # Check all 4 adjacent positions (not diagonal)
+                adjacent_positions = [
+                    (x - 1, y),  # Left
+                    (x + 1, y),  # Right
+                    (x, y - 1),  # Up
+                    (x, y + 1),  # Down
+                ]
+                
+                for adj_pos in adjacent_positions:
+                    if adj_pos in remaining_tiles:
+                        to_process.append(adj_pos)
+                        remaining_tiles.remove(adj_pos)
+            
+            groups.append(current_group)
+        
+        return groups
+    
+    def _draw_speed_debug(self):
+        """Draw speed debug information"""
+        font = pygame.font.Font(None, 24)
+        speed_text = f"Speed: {self.player_speed:.1f}"
+        
+        # Render text with outline for visibility
+        text_surface = font.render(speed_text, True, (255, 255, 255))
+        outline_surface = font.render(speed_text, True, (0, 0, 0))
+        
+        # Position in top-right corner
+        text_width = text_surface.get_width()
+        x_pos = self.screen_width - text_width - 20
+        y_pos = 20
+        
+        # Draw outline and text
+        self.screen.blit(outline_surface, (x_pos + 1, y_pos + 1))
+        self.screen.blit(text_surface, (x_pos, y_pos))
+    
     def _draw_zoom_indicator(self):
         """Draw zoom level indicator in top-right corner"""
         font = pygame.font.Font(None, 32)
@@ -220,10 +625,10 @@ class GameDemo:
         text_surface = font.render(zoom_text, True, (255, 255, 255))
         outline_surface = font.render(zoom_text, True, (0, 0, 0))
         
-        # Position in top-right corner
+        # Position in top-right corner (adjust if speed debug is shown)
         text_width = text_surface.get_width()
         x_pos = self.screen_width - text_width - 20
-        y_pos = 20
+        y_pos = 50 if self.show_speed_debug else 20  # Move down if speed debug is shown
         
         # Draw outline and text
         self.screen.blit(outline_surface, (x_pos + 1, y_pos + 1))
@@ -242,10 +647,19 @@ class GameDemo:
             "0: Reset zoom",
             "F1: Toggle debug info",
             "F2: Toggle smooth camera",
+            "F3: Toggle coordinates",
+            "F4: Toggle creation mode",
+            "TAB: Switch note/door/delete mode (in creation mode)",
+            "F5: Toggle speed debug",
             "Space: Pause",
             "1-3: Toggle layers (demo)",
             "E: Interact with objects",
             "C: Clear rules for testing",
+            "I: Show interactables info (when coords shown)",
+            "X: Copy mouse coords to console (when coords shown)",
+            "Delete: Clean up duplicate interactables (when coords shown)",
+            "[ / ]: Decrease/Increase speed (when speed debug on)",
+            "\\: Reset speed to default (when speed debug on)",
             "ESC: Quit"
         ]
         
@@ -263,6 +677,14 @@ class GameDemo:
     def load_level_interactables(self):
         """Load interactables for the current level"""
         if self.level_manager.current_level:
+            # Clear game state rules for fresh start in each level
+            game_state.clear_rules_for_testing()
+            
+            # Set the current level path for saving
+            level_path = self.level_manager.get_current_level_path()
+            if level_path:
+                interactable_manager.set_current_level_path(level_path)
+            
             interactable_manager.load_from_level_data(self.level_manager.current_level.raw_data)
     
     def check_nearby_interactables(self):
@@ -319,6 +741,10 @@ class GameDemo:
             message = result.get("message", "Already read this note.")
             self.message_ui.show_message(message, 2000)
             
+        elif interaction_type == "empty_interactable":
+            message = result.get("message", "There's nothing here.")
+            self.message_ui.show_message(message, 2000)
+            
         elif interaction_type == "door_locked":
             message = result.get("message", "Door is locked.")
             self.message_ui.show_message(message, 3000)
@@ -341,6 +767,161 @@ class GameDemo:
         else:
             message = result.get("message", "Password incorrect.")
             self.message_ui.show_message(message, 3000)
+    
+    def _draw_existing_interactables(self):
+        """Draw outlines around existing interactable tiles"""
+        zoom = self.level_manager.camera.zoom
+        camera = self.level_manager.camera
+        
+        for obj in interactable_manager.interactables:
+            if hasattr(obj, 'tiles'):  # Multi-tile interactable
+                # Draw outline around all tiles in the group
+                for tile_x, tile_y in obj.tiles:
+                    world_x = tile_x * 16
+                    world_y = tile_y * 16
+                    screen_x, screen_y = camera.apply(world_x, world_y)
+                    
+                    rect = pygame.Rect(
+                        int(screen_x * zoom), 
+                        int(screen_y * zoom), 
+                        int(16 * zoom), 
+                        int(16 * zoom)
+                    )
+                    
+                    # Determine color based on interactable type and state
+                    color = self._get_interactable_color(obj)
+                    
+                    # Draw thicker outline for multi-tile groups
+                    pygame.draw.rect(self.screen, color, rect, 3)
+                    
+                    # Add a small indicator in the corner for multi-tile groups
+                    corner_size = max(4, int(4 * zoom))
+                    corner_rect = pygame.Rect(
+                        rect.right - corner_size, 
+                        rect.top, 
+                        corner_size, 
+                        corner_size
+                    )
+                    pygame.draw.rect(self.screen, (255, 255, 255), corner_rect)
+                    
+            else:  # Single-tile interactable
+                world_x = obj.x * 16
+                world_y = obj.y * 16
+                screen_x, screen_y = camera.apply(world_x, world_y)
+                
+                rect = pygame.Rect(
+                    int(screen_x * zoom), 
+                    int(screen_y * zoom), 
+                    int(16 * zoom), 
+                    int(16 * zoom)
+                )
+                
+                # Determine color based on interactable type and state
+                color = self._get_interactable_color(obj)
+                
+                # Draw outline
+                pygame.draw.rect(self.screen, color, rect, 2)
+    
+    def _get_interactable_color(self, obj) -> tuple:
+        """Get the appropriate color for an interactable based on its type and state"""
+        # Check if it's collected/claimed
+        if hasattr(obj, 'collected') and obj.collected:
+            return (100, 100, 100)  # Gray for collected/claimed
+        
+        # Check if it's an open door
+        if hasattr(obj, 'is_open') and obj.is_open:
+            return (0, 255, 255)  # Cyan for open doors
+        
+        # Check object type
+        if obj.__class__.__name__ == 'Door':
+            return (255, 0, 255)  # Magenta for locked doors
+        elif obj.__class__.__name__ == 'EmptyInteractable':
+            return (150, 150, 150)  # Light gray for empty interactables
+        elif obj.__class__.__name__ == 'MultiTileEmptyInteractable':
+            return (150, 150, 150)  # Light gray for multi-tile empty interactables
+        elif obj.__class__.__name__ == 'Note':
+            return (0, 255, 0)  # Green for notes with rules
+        elif obj.__class__.__name__ == 'MultiTileNote':
+            return (0, 255, 0)  # Green for multi-tile notes with rules
+        else:
+            return (255, 255, 0)  # Yellow for unknown/other types
+    
+    def _show_interactables_info(self):
+        """Show information about programmatic interactables for the current level"""
+        if not self.level_manager.current_level:
+            self.message_ui.show_message("No level loaded!", 2000)
+            return
+        
+        level_name = self.level_manager.current_level_name or "unknown"
+        programmatic = interactable_manager.list_programmatic_interactables(level_name)
+        
+        if level_name in programmatic and programmatic[level_name]:
+            count = len(programmatic[level_name])
+            self.message_ui.show_message(f"Level '{level_name}' has {count} programmatic interactables", 3000)
+            
+            # Print detailed info to console
+            print(f"\n=== Programmatic Interactables for '{level_name}' ===")
+            for i, interactable in enumerate(programmatic[level_name]):
+                print(f"{i+1}. Type: {interactable['type']}")
+                print(f"   Coordinates: {interactable['coordinates']}")
+                if 'rule' in interactable:
+                    print(f"   Rule: {interactable['rule']}")
+                if 'required_rules' in interactable:
+                    print(f"   Required Rules: {interactable['required_rules']}")
+                print()
+        else:
+            self.message_ui.show_message(f"No programmatic interactables for '{level_name}'", 2000)
+    
+    def _copy_mouse_coordinates(self):
+        """Print current mouse coordinates in a format ready for code"""
+        try:
+            # Safety check for coordinates
+            if not hasattr(self, 'mouse_tile_x') or not hasattr(self, 'mouse_tile_y'):
+                self._update_mouse_tile_coords()
+            
+            level_name = self.level_manager.current_level_name or "unknown"
+            
+            # Print single tile format
+            print(f"\n=== Mouse Coordinates ===")
+            print(f"Level: {level_name}")
+            print(f"Tile Coordinates: ({self.mouse_tile_x}, {self.mouse_tile_y})")
+            print(f"\n--- Code Examples ---")
+            print(f"# Single tile interactable:")
+            print(f'interactable_manager.add_single_tile_interactable(')
+            print(f'    "{level_name}", {self.mouse_tile_x}, {self.mouse_tile_y},')
+            print(f'    "Your rule text here"')
+            print(f')')
+            print(f"\n# Door:")
+            print(f'interactable_manager.add_door_coordinates(')
+            print(f'    "{level_name}", {self.mouse_tile_x}, {self.mouse_tile_y},')
+            print(f'    required_rules=4')
+            print(f')')
+            print(f"\n# Multi-tile (add more coordinates):")
+            print(f'interactable_manager.add_multi_tile_interactable_coords(')
+            print(f'    "{level_name}",')
+            print(f'    [({self.mouse_tile_x}, {self.mouse_tile_y}), (x2, y2), (x3, y3)],')
+            print(f'    "Your multi-tile rule text here"')
+            print(f')')
+            
+            self.message_ui.show_message(f"Coordinates ({self.mouse_tile_x}, {self.mouse_tile_y}) printed to console!", 2000)
+        except Exception as e:
+            print(f"Error copying mouse coordinates: {e}")
+            self.message_ui.show_message("Error copying coordinates", 2000)
+    
+    def _clean_duplicate_interactables(self):
+        """Clean up duplicate interactables"""
+        success = interactable_manager.clean_duplicate_interactables()
+        
+        if success:
+            # Reload the level to show the cleaned up interactables
+            current_name = self.level_manager.current_level_name
+            if current_name:
+                self.level_manager.load_level(current_name)
+                self.load_level_interactables()
+            
+            self.message_ui.show_message("Duplicate interactables cleaned up!", 3000)
+        else:
+            self.message_ui.show_message("Failed to clean up duplicates!", 2000)
     
     def run(self):
         """Main game loop"""

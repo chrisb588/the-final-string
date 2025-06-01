@@ -293,6 +293,12 @@ class LayeredLevelManager:
             return self.current_level.get_starting_point()
         return (100, 100)  # Default fallback
     
+    def get_current_level_path(self) -> Optional[str]:
+        """Get the file path of the current level for saving"""
+        if self.current_level:
+            return self.current_level.level_path
+        return None
+    
     def _create_tile_sprites(self):
         """Create TileSprite objects for all tiles in all layers"""
         if not self.current_level:
@@ -309,8 +315,19 @@ class LayeredLevelManager:
             
             # Create sprites for each tile in this specific layer instance
             for tile_data in layer_data['tiles']:
+                # Skip creating sprites for empty interactables (they shouldn't be visible)
+                if (layer_name == "interactables" and 
+                    tile_data.get("type") in ["empty", "multi_empty"] and 
+                    not tile_data.get("rule")):
+                    continue
+                
+                # Skip tiles without an id (some interactables might not have sprites)
+                tile_id = tile_data.get('id')
+                if not tile_id:
+                    continue
+                
                 tile_surface = self.renderer.get_tile_surface(
-                    tile_data['id'], 
+                    tile_id, 
                     self.current_level.tile_size, 
                     self.current_level_name
                 )

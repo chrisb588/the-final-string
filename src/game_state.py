@@ -17,26 +17,13 @@ class PasswordRuleManager:
         ]
         
         # ========================================
-        # EXTENDED RULES (Future Levels - Add Here)
+        # EXTENDED RULES (For Randomization - Add Here)
         # ========================================
-        # TODO: Add more rules here for randomized selection in future levels
-        # Example rules to implement:
         self.extended_rules = [
-            # "Password must contain at least one lowercase letter",
-            # "Password must not contain consecutive identical characters",
-            # "Password must contain at least 2 special characters",
-            # "Password must not contain your username",
-            # "Password must contain at least one vowel",
-            # "Password must not contain common words (password, 123456, etc.)",
-            # "Password must have digits that sum to at least 15",
-            # "Password must contain a month name",
-            # "Password must include Roman numerals that add up to 35",
-            # "Password must contain the current year",
-            # "Password must include a country name",
-            # "Password must contain an emoji",
-            # "Password must be a palindrome",
-            # "Password must contain prime numbers only",
-            # "Password must include chess notation",
+            "Password must contain the current year",
+            "Password must contain at least one lowercase letter",
+            "Password must not contain consecutive identical characters",
+            "Password must contain at least one vowel"
         ]
     
     def get_tutorial_rules(self) -> List[str]:
@@ -45,20 +32,19 @@ class PasswordRuleManager:
     
     def get_randomized_rules(self, count: int = 4) -> List[str]:
         """
-        Get randomized rules for future levels
+        Get randomized rules for levels that use rule_count
         
         Args:
             count: Number of rules to select
             
         Returns:
-            List of randomly selected rules
-            
-        TODO: Implement randomization logic here
-        This is where you'll add the randomizer for future levels
+            List of randomly selected rules from extended_rules
         """
-        # For now, return tutorial rules as placeholder
-        # Future implementation should randomly select from extended_rules
-        return self.tutorial_rules[:count]
+        if count <= len(self.extended_rules):
+            return random.sample(self.extended_rules, count)
+        else:
+            # If requesting more rules than available, return all extended rules
+            return self.extended_rules.copy()
     
     def validate_rule(self, password: str, rule: str) -> bool:
         """Validate password against a single rule"""
@@ -88,17 +74,31 @@ class PasswordRuleManager:
         # ========================================
         # EXTENDED RULE VALIDATION (Add Here)
         # ========================================
-        # TODO: Add validation logic for extended rules here
+        
+        # Password must contain the current year
+        elif "contain the current year" in rule_lower:
+            import datetime
+            current_year = str(datetime.datetime.now().year)
+            return current_year in password
+        
+        # Password must contain at least one lowercase letter
+        elif "contain at least one lowercase" in rule_lower:
+            return any(char.islower() for char in password)
+        
+        # Password must not contain consecutive identical characters
+        elif "not contain consecutive identical" in rule_lower:
+            for i in range(len(password) - 1):
+                if password[i] == password[i + 1]:
+                    return False
+            return True
+        
+        # Password must contain at least one vowel
+        elif "contain at least one vowel" in rule_lower:
+            vowels = "aeiouAEIOU"
+            return any(char in vowels for char in password)
+        
+        # TODO: Add validation logic for other extended rules here
         # Example implementations:
-        
-        # elif "contain at least one lowercase" in rule_lower:
-        #     return any(char.islower() for char in password)
-        
-        # elif "not contain consecutive identical" in rule_lower:
-        #     for i in range(len(password) - 1):
-        #         if password[i] == password[i + 1]:
-        #             return False
-        #     return True
         
         # elif "contain at least 2 special characters" in rule_lower:
         #     special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
@@ -116,7 +116,7 @@ class GameState:
         self.collected_notes: Set[str] = set()  # Track which notes have been collected
         self.current_level = None
         self.rule_manager = PasswordRuleManager()
-        
+    
     def add_rule(self, rule: str, note_id: str = None):
         """Add a rule to the collected rules"""
         if rule not in self.collected_rules:

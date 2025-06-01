@@ -72,6 +72,21 @@ class Level:
         """Check if there's a collision at the given tile coordinates"""
         for layer in self.get_collision_layers():
             if layer.has_tile_at(x, y):
+                # Special handling for interactables layer
+                if layer.name == "interactables":
+                    # Get the tile data to check if it's an empty interactable
+                    tile_data = layer.get_tile_at(x, y)
+                    if tile_data:
+                        # Empty interactables (without rules) should not cause collision
+                        if (tile_data.get("type") == "empty" and 
+                            not tile_data.get("rule")):
+                            continue
+                        # Multi-tile empty interactables should not cause collision
+                        if (tile_data.get("type") == "multi_note" and 
+                            not tile_data.get("rule")):
+                            continue
+                
+                # All other tiles in collision layers cause collision
                 return True
         return False
     
