@@ -23,28 +23,39 @@ class PasswordRuleManager:
             "Password must contain the current year",
             "Password must contain at least one lowercase letter",
             "Password must not contain consecutive identical characters",
-            "Password must contain at least one vowel"
+            "Password must contain at least one vowel",
+            "Password must contain a month name (Jan, Feb, Mar, etc.)",
+            "Password must contain exactly 6 digits",
+            "Password must start with a capital letter"
         ]
     
     def get_tutorial_rules(self) -> List[str]:
         """Get the fixed tutorial rules for level 1"""
         return self.tutorial_rules.copy()
     
-    def get_randomized_rules(self, count: int = 4) -> List[str]:
+    def get_randomized_rules(self, count: int = 4, exclude_rules: set = None) -> List[str]:
         """
         Get randomized rules for levels that use rule_count
         
         Args:
             count: Number of rules to select
+            exclude_rules: Set of rules to exclude from selection
             
         Returns:
-            List of randomly selected rules from extended_rules
+            List of randomly selected rules from extended_rules (excluding specified rules)
         """
-        if count <= len(self.extended_rules):
-            return random.sample(self.extended_rules, count)
+        if exclude_rules is None:
+            exclude_rules = set()
+        
+        # Filter out excluded rules
+        available_rules = [rule for rule in self.extended_rules if rule not in exclude_rules]
+        
+        if count <= len(available_rules):
+            return random.sample(available_rules, count)
         else:
-            # If requesting more rules than available, return all extended rules
-            return self.extended_rules.copy()
+            # If requesting more rules than available, return all available rules
+            print(f"Warning: Requested {count} rules but only {len(available_rules)} available after exclusions")
+            return available_rules.copy()
     
     def validate_rule(self, password: str, rule: str) -> bool:
         """Validate password against a single rule"""
@@ -96,6 +107,24 @@ class PasswordRuleManager:
         elif "contain at least one vowel" in rule_lower:
             vowels = "aeiouAEIOU"
             return any(char in vowels for char in password)
+        
+        # Password must contain a month name
+        elif "contain a month name" in rule_lower:
+            months = ["jan", "feb", "mar", "apr", "may", "jun", 
+                     "jul", "aug", "sep", "oct", "nov", "dec",
+                     "january", "february", "march", "april", "may", "june",
+                     "july", "august", "september", "october", "november", "december"]
+            password_lower = password.lower()
+            return any(month in password_lower for month in months)
+        
+        # Password must contain exactly 2 digits
+        elif "contain exactly 6 digits" in rule_lower:
+            digit_count = sum(1 for char in password if char.isdigit())
+            return digit_count == 6
+        
+        # Password must start with a capital letter
+        elif "start with a capital letter" in rule_lower:
+            return len(password) > 0 and password[0].isupper()
         
         # TODO: Add validation logic for other extended rules here
         # Example implementations:

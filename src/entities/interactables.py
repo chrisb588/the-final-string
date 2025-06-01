@@ -192,6 +192,10 @@ class Door(Interactable):
         """Set level metadata for rule lookup"""
         self.level_metadata = metadata
     
+    def set_required_rules(self, required_rules: int):
+        """Set the required rules count (for accumulated rules from previous levels)"""
+        self.required_rules = required_rules
+    
     def try_password(self, password: str) -> Dict[str, Any]:
         """Try to open the door with a password"""
         validation_results = game_state.validate_password(password)
@@ -252,7 +256,7 @@ class InteractableManager:
         self.programmatic_interactables = {}  # Store interactables defined in code by level name
         self.current_level_path = None  # Track current level file path
         
-    def load_from_level_data(self, level_data: Dict[str, Any]):
+    def load_from_level_data(self, level_data: Dict[str, Any], used_rules: set = None):
         """Load interactables from level data"""
         self.interactables.clear()
         self.level_metadata = level_data.get("metadata", {})
@@ -264,10 +268,13 @@ class InteractableManager:
         if "rule_count" in self.level_metadata and "rules" not in self.level_metadata:
             rule_count = self.level_metadata["rule_count"]
             
-            # Use randomized rules from extended_rules for dynamic selection
-            selected_rules = game_state.rule_manager.get_randomized_rules(rule_count)
+            # Use randomized rules from extended_rules for dynamic selection, excluding used rules
+            if used_rules is None:
+                used_rules = set()
+            
+            selected_rules = game_state.rule_manager.get_randomized_rules(rule_count, used_rules)
             self.level_metadata["rules"] = selected_rules
-            print(f"Randomly selected {len(selected_rules)} rules for level:")
+            print(f"Randomly selected {len(selected_rules)} rules for level (excluding {len(used_rules)} previously used):")
             for i, rule in enumerate(selected_rules, 1):
                 print(f"  {i}. {rule}")
         
@@ -705,6 +712,10 @@ class InteractableManager:
         if level_name:
             return {level_name: self.programmatic_interactables.get(level_name, [])}
         return self.programmatic_interactables.copy()
+
+    def get_current_level_rules(self) -> List[str]:
+        """Get the rules that were selected for the current level"""
+        return self.level_metadata.get("rules", [])
 
     def clean_duplicate_interactables(self) -> bool:
         """Clean up duplicate interactables from the current level file"""

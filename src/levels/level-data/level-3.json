@@ -3345,8 +3345,7 @@
           "y": 281,
           "type": "note",
           "multi_group": "multi_4019",
-          "is_primary": true,
-          "rule": "Password must contain at least one lowercase letter"
+          "is_primary": true
         },
         {
           "id": "25",
@@ -3530,8 +3529,7 @@
           "y": 275,
           "type": "note",
           "multi_group": "multi_8728",
-          "is_primary": false,
-          "rule": "Password must not contain repeating characters"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -3755,8 +3753,7 @@
           "y": 207,
           "type": "note",
           "multi_group": "multi_3740",
-          "is_primary": false,
-          "rule": "Password must not contain consecutive identical characters"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -3924,8 +3921,7 @@
           "y": 408,
           "type": "note",
           "multi_group": "multi_9457",
-          "is_primary": false,
-          "rule": "Password must end with a special character (!@#$%)"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4061,8 +4057,7 @@
           "y": 212,
           "type": "note",
           "multi_group": "multi_4634",
-          "is_primary": false,
-          "rule": "Password must contain at least one number"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4254,8 +4249,7 @@
           "y": 222,
           "type": "note",
           "multi_group": "multi_2433",
-          "is_primary": false,
-          "rule": "Password must contain at least one uppercase letter"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4527,8 +4521,7 @@
           "y": 294,
           "type": "note",
           "multi_group": "multi_2503",
-          "is_primary": true,
-          "rule": "Password must not contain dictionary words"
+          "is_primary": true
         },
         {
           "id": "25",
@@ -4560,8 +4553,7 @@
           "y": 294,
           "type": "note",
           "multi_group": "multi_2503",
-          "is_primary": false,
-          "rule": "Password must be different from your last 3 passwords"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4673,8 +4665,7 @@
           "y": 274,
           "type": "note",
           "multi_group": "multi_1841",
-          "is_primary": false,
-          "rule": "Password must not contain your username"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4762,8 +4753,7 @@
           "y": 471,
           "type": "note",
           "multi_group": "multi_3981",
-          "is_primary": false,
-          "rule": "Password must be at least 8 characters long"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4787,8 +4777,7 @@
           "y": 228,
           "type": "note",
           "multi_group": "multi_8051",
-          "is_primary": false,
-          "rule": "Password must contain exactly 3 uppercase letters"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4828,8 +4817,7 @@
           "y": 294,
           "type": "note",
           "multi_group": "multi_8895",
-          "is_primary": true,
-          "rule": "Password must start and end with the same character type"
+          "is_primary": true
         },
         {
           "id": "25",
@@ -4949,8 +4937,7 @@
           "y": 207,
           "type": "note",
           "multi_group": "multi_9683",
-          "is_primary": false,
-          "rule": "Password must contain at least 2 numbers"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -4974,8 +4961,7 @@
           "y": 275,
           "type": "note",
           "multi_group": "multi_1832",
-          "is_primary": false,
-          "rule": "Password must contain alternating letters and numbers"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -5079,8 +5065,7 @@
           "y": 426,
           "type": "note",
           "multi_group": "multi_4440",
-          "is_primary": false,
-          "rule": "Password must contain at least 2 special characters"
+          "is_primary": false
         },
         {
           "id": "25",
@@ -5169,6 +5154,62 @@
           "type": "empty",
           "multi_group": "multi_9608",
           "is_primary": false
+        },
+        {
+          "x": 130,
+          "y": 161,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              130,
+              161
+            ],
+            [
+              132,
+              161
+            ],
+            [
+              133,
+              161
+            ],
+            [
+              130,
+              163
+            ],
+            [
+              131,
+              161
+            ],
+            [
+              130,
+              162
+            ]
+          ],
+          "id": "25"
+        },
+        {
+          "x": 179,
+          "y": 221,
+          "type": "multi_empty",
+          "coordinates": [
+            [
+              179,
+              221
+            ],
+            [
+              179,
+              222
+            ],
+            [
+              178,
+              221
+            ],
+            [
+              178,
+              222
+            ]
+          ],
+          "id": "25"
         }
       ],
       "collider": true

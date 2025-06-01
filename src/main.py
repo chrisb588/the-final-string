@@ -5,6 +5,7 @@ from levels.manager import LayeredLevelManager
 from game_state import game_state
 from entities.interactables import interactable_manager
 from ui.password_ui import PasswordUI, MessageUI, RulesDisplayUI
+from ui.matrix_background import MatrixBackground
 from interactable_config import setup_level_interactables
 
 class GameDemo:
@@ -61,6 +62,19 @@ class GameDemo:
         self.password_ui = PasswordUI(self.screen)
         self.message_ui = MessageUI(self.screen)
         self.rules_ui = RulesDisplayUI(self.screen)
+        
+        # Matrix background
+        self.matrix_background = MatrixBackground(
+            self.screen_width, 
+            self.screen_height, 
+            gif_path="assets/images/matrix_background.gif"  # You can change this path
+        )
+        
+        # Level transition persistence
+        self.last_successful_password = ""
+        self.is_transitioning = False
+        self.accumulated_rules = []  # Rules from all previously completed levels
+        self.used_rules = set()  # Track rules that have been used in any level
         
         # Setup programmatic interactables from configuration
         setup_level_interactables()
@@ -394,13 +408,16 @@ class GameDemo:
         # Update UI components
         self.message_ui.update()
         
+        # Update matrix background animation
+        self.matrix_background.update()
+        
         # Check for nearby interactables
         self.check_nearby_interactables()
     
     def render(self):
         """Render the game"""
-        # Clear screen
-        self.screen.fill((64, 128, 255))  # Sky blue background
+        # Render matrix background
+        self.matrix_background.render(self.screen)
         
         # Render level with layered sprites
         self.level_manager.render_level(debug_info=self.show_debug)
@@ -701,15 +718,30 @@ class GameDemo:
     def load_level_interactables(self):
         """Load interactables for the current level"""
         if self.level_manager.current_level:
-            # Clear game state rules for fresh start in each level
-            game_state.clear_rules_for_testing()
+            # Only clear game state rules if we're not transitioning from another level
+            if not self.is_transitioning:
+                game_state.clear_rules_for_testing()
             
             # Set the current level path for saving
             level_path = self.level_manager.get_current_level_path()
             if level_path:
                 interactable_manager.set_current_level_path(level_path)
             
-            interactable_manager.load_from_level_data(self.level_manager.current_level.raw_data)
+            # Pass the used rules to avoid selecting previously used rules
+            interactable_manager.load_from_level_data(self.level_manager.current_level.raw_data, self.used_rules)
+            
+            # Track newly selected rules as used
+            current_level_rules = interactable_manager.get_current_level_rules()
+            for rule in current_level_rules:
+                self.used_rules.add(rule)
+            
+            print(f"Total rules used across all levels: {len(self.used_rules)}")
+            
+            # Update door requirements based on accumulated rules
+            self._update_door_requirements()
+            
+            # Reset transition flag after loading
+            self.is_transitioning = False
     
     def check_nearby_interactables(self):
         """Check for nearby interactables and show interaction hints"""
@@ -774,11 +806,18 @@ class GameDemo:
             self.message_ui.show_message(message, 3000)
             
         elif interaction_type == "door_password_prompt":
-            # Show password UI
+            # Show password UI with preserved password if available
             rules = result.get("rules", [])
             collected_rules = result.get("collected_rules", [])
             door = result.get("door")
-            self.password_ui.show(rules, door, self.handle_password_result, collected_rules)
+            
+            # Combine accumulated rules from previous levels with current level collected rules
+            combined_collected_rules = self.accumulated_rules.copy()
+            for rule in collected_rules:
+                if rule not in combined_collected_rules:
+                    combined_collected_rules.append(rule)
+            
+            self.password_ui.show(rules, door, self.handle_password_result, combined_collected_rules, self.last_successful_password)
             
         elif interaction_type == "door_open":
             message = result.get("message", "Door is open.")
@@ -801,6 +840,23 @@ class GameDemo:
                 next_level = result.get("next_level")
                 message = result.get("message", f"Entering {next_level}...")
                 self.message_ui.show_message(message, 2000)
+                
+                # Store the successful password and set transition flag
+                if self.password_ui.password_input:
+                    self.last_successful_password = self.password_ui.password_input.text
+                
+                # Accumulate rules from current level (avoid duplicates)
+                current_level_rules = self.password_ui.rules if self.password_ui.rules else []
+                for rule in current_level_rules:
+                    if rule != "????" and rule not in self.accumulated_rules:
+                        self.accumulated_rules.append(rule)
+                        print(f"Accumulated rule: {rule}")
+                
+                print(f"Total accumulated rules: {len(self.accumulated_rules)}")
+                for i, rule in enumerate(self.accumulated_rules, 1):
+                    print(f"  {i}. {rule}")
+                
+                self.is_transitioning = True
                 
                 if next_level:
                     self.transition_to_level(next_level)
@@ -989,6 +1045,27 @@ class GameDemo:
         except Exception as e:
             print(f"Error transitioning to level {level_name}: {e}")
             self.message_ui.show_message(f"Error loading {level_name}", 3000)
+    
+    def _update_door_requirements(self):
+        """Update door required rules based on accumulated rules plus current level rules"""
+        if not self.level_manager.current_level:
+            return
+        
+        # Get current level's rule count
+        current_level_rule_count = 0
+        if hasattr(interactable_manager, 'level_metadata') and interactable_manager.level_metadata:
+            current_level_rule_count = interactable_manager.level_metadata.get("rule_count", 0)
+        
+        # Calculate total required rules (accumulated + current level)
+        total_required_rules = len(self.accumulated_rules) + current_level_rule_count
+        
+        # Update all doors in the current level
+        for obj in interactable_manager.interactables:
+            if obj.__class__.__name__ == 'Door':
+                obj.set_required_rules(total_required_rules)
+                print(f"Updated door at ({obj.x}, {obj.y}) to require {total_required_rules} rules")
+        
+        print(f"Door requirements updated: {len(self.accumulated_rules)} accumulated + {current_level_rule_count} current = {total_required_rules} total")
     
     def run(self):
         """Main game loop"""
