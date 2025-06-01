@@ -909,5 +909,69 @@ class InteractableManager:
         # Clear game state to remove any old rules before starting fresh
         game_state.clear_rules_for_testing()
 
+    def assign_predetermined_rules(self, level_name: str, predetermined_rules: List[str]):
+        """Assign predetermined rules to existing empty interactables in the level file"""
+        if not self.current_level_path:
+            print("Error: No current level path set")
+            return False
+        
+        try:
+            # Read current level data
+            with open(self.current_level_path, 'r') as f:
+                level_data = json.load(f)
+            
+            # Find interactables layer
+            interactables_layer = None
+            for layer in level_data.get("layers", []):
+                if layer.get("name") == "interactables":
+                    interactables_layer = layer
+                    break
+            
+            if not interactables_layer:
+                print("No interactables layer found")
+                return False
+            
+            # Find empty interactables in the JSON
+            empty_tiles = []
+            for tile in interactables_layer["tiles"]:
+                if tile.get("type") in ["empty", "multi_empty"]:
+                    empty_tiles.append(tile)
+            
+            if not empty_tiles:
+                print("No empty interactables found in level JSON")
+                return False
+            
+            # Randomly select which empty interactables get the predetermined rules
+            num_rules_to_assign = min(len(predetermined_rules), len(empty_tiles))
+            selected_tiles = random.sample(empty_tiles, num_rules_to_assign)
+            
+            # Assign the predetermined rules
+            for i, (tile, rule) in enumerate(zip(selected_tiles, predetermined_rules[:num_rules_to_assign])):
+                # Convert empty to note with the predetermined rule
+                if tile.get("type") == "multi_empty":
+                    tile["type"] = "multi_note"
+                else:
+                    tile["type"] = "note"
+                
+                tile["rule"] = rule
+                print(f"Assigned predetermined rule {i+1}/{num_rules_to_assign} to ({tile['x']}, {tile['y']}): {rule}")
+            
+            # Add rule_count to level metadata
+            if "metadata" not in level_data:
+                level_data["metadata"] = {}
+            level_data["metadata"]["rule_count"] = len(predetermined_rules)
+            
+            # Save back to file
+            with open(self.current_level_path, 'w') as f:
+                json.dump(level_data, f, indent=2)
+            
+            print(f"Successfully assigned {num_rules_to_assign} predetermined rules to level {level_name}")
+            print(f"Added rule_count: {len(predetermined_rules)} to level metadata")
+            return True
+            
+        except Exception as e:
+            print(f"Error assigning predetermined rules: {e}")
+            return False
+
 # Global interactable manager instance
 interactable_manager = InteractableManager()

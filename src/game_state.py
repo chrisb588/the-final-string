@@ -7,7 +7,7 @@ class PasswordRuleManager:
     
     def __init__(self):
         # ========================================
-        # TUTORIAL RULES (Level 1 - Fixed Set)
+        # TUTORIAL RULES (Level 0 - Fixed Set)
         # ========================================
         self.tutorial_rules = [
             "Password must be at least 8 characters long",

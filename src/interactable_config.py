@@ -7,12 +7,16 @@ You can easily modify coordinates and rules here without touching the main game 
 
 from typing import List, Tuple, Dict, Any
 from entities.interactables import interactable_manager
+from game_state import game_state
 
 def setup_level_interactables():
     """Setup all interactable coordinates for different levels"""
     
     # Clear any existing programmatic interactables
     interactable_manager.clear_programmatic_interactables()
+    
+    # ===== LEVEL 0 INTERACTABLES =====
+    setup_level_0()
     
     # ===== LEVEL 1 INTERACTABLES =====
     setup_level_1()
@@ -28,6 +32,22 @@ def setup_level_interactables():
     
     # ===== TEST LEVEL INTERACTABLES =====
     setup_test_level()
+
+def setup_level_0():
+    """Setup interactables for Level 0 - Starting level with predetermined tutorial rules"""
+    level_name = "level-0"
+    
+    # Get predetermined tutorial rules from game_state
+    predetermined_rules = game_state.rule_manager.get_tutorial_rules()
+    
+    # Assign predetermined rules to random existing empty interactables
+    interactable_manager.assign_predetermined_rules(level_name, predetermined_rules)
+    
+    # Ensure there's a door that requires all the tutorial rules
+    interactable_manager.add_door_coordinates(
+        level_name, 14, 15, 
+        required_rules=len(predetermined_rules)
+    )
 
 def setup_level_1():
     """Setup interactables for Level 1"""

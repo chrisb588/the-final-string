@@ -643,7 +643,7 @@ class GameDemo:
         
         # Check if shift is held for running
         is_running = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
-        current_speed = self.player_speed * 2.0 if is_running else self.player_speed
+        current_speed = self.player_speed * 1.5 if is_running else self.player_speed
         
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             self.player_y -= current_speed
