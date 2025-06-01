@@ -13,20 +13,23 @@ class PasswordRuleManager:
             "Password must be at least 8 characters long",
             "Password must contain at least one number", 
             "Password must contain at least one uppercase letter",
-            "Password must end with a special character (!@#$%)"
+            "Password must contain a special character (!@#$%)"
         ]
         
         # ========================================
         # EXTENDED RULES (For Randomization - Add Here)
         # ========================================
         self.extended_rules = [
-            "Password must contain the current year",
-            "Password must contain at least one lowercase letter",
-            "Password must not contain consecutive identical characters",
-            "Password must contain at least one vowel",
-            "Password must contain a month name (Jan, Feb, Mar, etc.)",
-            "Password must contain exactly 6 digits",
-            "Password must start with a capital letter"
+            "The length of your password must be an odd number.",
+            "Your password must contain the '😎' emoji.",
+            "Your password should contain the string 'This is the best game that has ever been made in the entire universe!.'",
+            "Your password must contain a number that is a factor of 141.",
+            "Your password must contain the answer to this question 'Who is in the Top 3 spot in the world in tennis men's singles category who has not won a single Grand Slam?'",
+            "Your password must contain any of the words in the sixth line in the third verse of the hit song 'luther' by Kendrick Lamar & SZA found on the website for geniuses",
+            "Your password must contain a palindrome that's exactly 7 characters long.",
+            "Your password must begin with the final word ever spoken in The Lord of the Rings.",
+            "Your password must contain the correct answer to this question: 'Fill in the blanks: CMSC 141 is the ___ course ever! 'best' or 'worst''",
+            "Your password must contain the current level you are on in text form."
         ]
     
     def get_tutorial_rules(self) -> List[str]:
@@ -77,62 +80,67 @@ class PasswordRuleManager:
         elif "contain at least one uppercase" in rule_lower:
             return any(char.isupper() for char in password)
         
-        # Rule 4: Password must end with a special character
-        elif "end with a special character" in rule_lower:
+        # Rule 4: Password must contain a special character
+        elif "contain a special character" in rule_lower:
             special_chars = "!@#$%"
-            return len(password) > 0 and password[-1] in special_chars
+            return len(password) > 0 and any(char in special_chars for char in password)
         
         # ========================================
         # EXTENDED RULE VALIDATION (Add Here)
         # ========================================
         
-        # Password must contain the current year
-        elif "contain the current year" in rule_lower:
-            import datetime
-            current_year = str(datetime.datetime.now().year)
-            return current_year in password
+        # The length of your password must be an odd number
+        elif "length of your password must be an odd number" in rule_lower:
+            return len(password) % 2 == 1
         
-        # Password must contain at least one lowercase letter
-        elif "contain at least one lowercase" in rule_lower:
-            return any(char.islower() for char in password)
+        # Your password must contain the '😎' emoji
+        elif "contain the '😎' emoji" in rule_lower or "'😎' emoji" in rule_lower or "😎" in rule:
+            return "😎" in password
         
-        # Password must not contain consecutive identical characters
-        elif "not contain consecutive identical" in rule_lower:
-            for i in range(len(password) - 1):
-                if password[i] == password[i + 1]:
-                    return False
-            return True
+        # Your password should contain the string "This is the best game that has ever been made in the entire universe!"
+        elif "this is the best game that has ever been made in the entire universe" in rule_lower:
+            return "This is the best game that has ever been made in the entire universe!" in password
         
-        # Password must contain at least one vowel
-        elif "contain at least one vowel" in rule_lower:
-            vowels = "aeiouAEIOU"
-            return any(char in vowels for char in password)
+        # Your password must contain a number that is a factor of 141
+        elif "factor of 141" in rule_lower:
+            factors_141 = ["1", "3", "47", "141"]
+            return any(factor in password for factor in factors_141)
         
-        # Password must contain a month name
-        elif "contain a month name" in rule_lower:
-            months = ["jan", "feb", "mar", "apr", "may", "jun", 
-                     "jul", "aug", "sep", "oct", "nov", "dec",
-                     "january", "february", "march", "april", "may", "june",
-                     "july", "august", "september", "october", "november", "december"]
+        # Your password must contain "Alexander Zverev" (either "alexander" or "zverev" is acceptable)
+        elif "alexander zverev" in rule_lower or "top 3 spot in the world in tennis" in rule_lower:
             password_lower = password.lower()
-            return any(month in password_lower for month in months)
+            return "alexander" in password_lower or "zverev" in password_lower
         
-        # Password must contain exactly 2 digits
-        elif "contain exactly 6 digits" in rule_lower:
-            digit_count = sum(1 for char in password if char.isdigit())
-            return digit_count == 6
+        # Your password must contain any of the words from Kendrick Lamar & SZA "luther" song
+        elif "luther" in rule_lower and "kendrick lamar" in rule_lower:
+            luther_words = ["I", "might", "even", "settle", "down", "for", "you", "I'ma", "show", "you", "I'm", "a", "pro"]
+            return any(word in password for word in luther_words)
         
-        # Password must start with a capital letter
-        elif "start with a capital letter" in rule_lower:
-            return len(password) > 0 and password[0].isupper()
+        # Your password must contain a palindrome that's exactly 7 characters long
+        elif "palindrome that's exactly 7 characters long" in rule_lower:
+            # Check for any 7-character palindrome in the password
+            for i in range(len(password) - 6):  # -6 because we need 7 characters
+                substring = password[i:i+7]
+                # Check if this 7-character substring is a palindrome
+                if substring.lower() == substring.lower()[::-1]:
+                    return True
+            return False
         
-        # TODO: Add validation logic for other extended rules here
-        # Example implementations:
+        # Your password must begin with "back" (final word from LOTR)
+        elif "begin with the final word ever spoken in the lord of the rings" in rule_lower:
+            return password.lower().startswith("back")
         
-        # elif "contain at least 2 special characters" in rule_lower:
-        #     special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
-        #     count = sum(1 for char in password if char in special_chars)
-        #     return count >= 2
+        # Your password must contain "best" (answer to CMSC 141 question)
+        elif "cmsc 141 is the" in rule_lower and "course ever" in rule_lower:
+            return "best" in password.lower()
+        
+        # Your password must contain the current level in text form
+        elif "current level you are on in text form" in rule_lower:
+            # This would need to be dynamically determined based on current level
+            # For now, let's check for common level names
+            level_names = ["level-0", "level-1", "level-2", "level-3", "level-4", "zero", "one", "two", "three", "four"]
+            password_lower = password.lower()
+            return any(level_name in password_lower for level_name in level_names)
         
         # Default case - unknown rule
         return True

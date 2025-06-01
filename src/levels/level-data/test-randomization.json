@@ -10,7 +10,10 @@
     "name": "test-randomization",
     "description": "Test level for interactable randomization",
     "author": "Game Developer",
-    "rule_count": 2
+    "rule_count": 1,
+    "custom_rules": [
+      "Your password should contain the string 'This is the best game that has ever been made in the entire universe!.'"
+    ]
   },
   "layers": [
     {

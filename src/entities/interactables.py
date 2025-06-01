@@ -278,30 +278,39 @@ class InteractableManager:
         if "rule_count" in self.level_metadata and "rules" not in self.level_metadata:
             rule_count = self.level_metadata["rule_count"]
             
-            # Special case for Level-0: use tutorial rules instead of extended rules
-            level_name = self.level_metadata.get("name", "")
-            
-            # Check if this is Level-0 by name or by checking current level path
-            is_level_0 = (level_name == "level-0" or 
-                         (hasattr(self, 'current_level_path') and 
-                          self.current_level_path and 
-                          "level-0.json" in self.current_level_path))
-            
-            if is_level_0:
-                # For Level-0, use tutorial rules
-                selected_rules = game_state.rule_manager.get_tutorial_rules()[:rule_count]
-                print(f"Using tutorial rules for Level-0 (selected {len(selected_rules)} rules):")
+            # Check for custom rules first (for testing)
+            if "custom_rules" in self.level_metadata:
+                # Use custom selected rules instead of random selection
+                selected_rules = self.level_metadata["custom_rules"]
+                print(f"Using custom selected rules for level ({len(selected_rules)} rules):")
                 for i, rule in enumerate(selected_rules, 1):
                     print(f"  {i}. {rule}")
             else:
-                # For other levels, use randomized rules from extended_rules for dynamic selection, excluding used rules
-                if used_rules is None:
-                    used_rules = set()
+                # Original dynamic rule selection logic
+                # Special case for Level-0: use tutorial rules instead of extended rules
+                level_name = self.level_metadata.get("name", "")
                 
-                selected_rules = game_state.rule_manager.get_randomized_rules(rule_count, used_rules)
-                print(f"Randomly selected {len(selected_rules)} rules for level (excluding {len(used_rules)} previously used):")
-                for i, rule in enumerate(selected_rules, 1):
-                    print(f"  {i}. {rule}")
+                # Check if this is Level-0 by name or by checking current level path
+                is_level_0 = (level_name == "level-0" or 
+                             (hasattr(self, 'current_level_path') and 
+                              self.current_level_path and 
+                              "level-0.json" in self.current_level_path))
+                
+                if is_level_0:
+                    # For Level-0, use tutorial rules
+                    selected_rules = game_state.rule_manager.get_tutorial_rules()[:rule_count]
+                    print(f"Using tutorial rules for Level-0 (selected {len(selected_rules)} rules):")
+                    for i, rule in enumerate(selected_rules, 1):
+                        print(f"  {i}. {rule}")
+                else:
+                    # For other levels, use randomized rules from extended_rules for dynamic selection, excluding used rules
+                    if used_rules is None:
+                        used_rules = set()
+                    
+                    selected_rules = game_state.rule_manager.get_randomized_rules(rule_count, used_rules)
+                    print(f"Randomly selected {len(selected_rules)} rules for level (excluding {len(used_rules)} previously used):")
+                    for i, rule in enumerate(selected_rules, 1):
+                        print(f"  {i}. {rule}")
             
             self.level_metadata["rules"] = selected_rules
         
