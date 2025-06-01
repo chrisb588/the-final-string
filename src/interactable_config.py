@@ -43,11 +43,6 @@ def setup_level_0():
     # Assign predetermined rules to random existing empty interactables
     interactable_manager.assign_predetermined_rules(level_name, predetermined_rules)
     
-    # Ensure there's a door that requires all the tutorial rules
-    interactable_manager.add_door_coordinates(
-        level_name, 14, 15, 
-        required_rules=len(predetermined_rules)
-    )
 
 def setup_level_1():
     """Setup interactables for Level 1"""

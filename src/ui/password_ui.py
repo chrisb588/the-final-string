@@ -212,6 +212,62 @@ class EditableText:
         self.selection_end = None
         self.focused = False
         self.ui_manager = ui_manager # Store reference to PasswordUI
+        self.is_selecting = False  # Track if we're in the middle of a mouse selection
+        
+        # Undo/Redo functionality
+        self.undo_stack = [(initial_text, len(initial_text))]  # Stack of (text, cursor_pos) tuples
+        self.redo_stack = []  # Stack for redo operations
+        self.max_undo_states = 50  # Limit undo history to prevent memory issues
+        
+    def _save_state(self):
+        """Save current state to undo stack"""
+        current_state = (self.text, self.cursor_pos)
+        # Only save if the state is different from the last one
+        if not self.undo_stack or self.undo_stack[-1] != current_state:
+            self.undo_stack.append(current_state)
+            # Limit undo stack size
+            if len(self.undo_stack) > self.max_undo_states:
+                self.undo_stack.pop(0)
+            # Clear redo stack when new action is performed
+            self.redo_stack.clear()
+    
+    def _undo(self):
+        """Undo the last action"""
+        if len(self.undo_stack) > 1:  # Keep at least one state
+            # Move current state to redo stack
+            current_state = (self.text, self.cursor_pos)
+            self.redo_stack.append(current_state)
+            
+            # Restore previous state
+            self.undo_stack.pop()  # Remove current state
+            previous_text, previous_cursor = self.undo_stack[-1]
+            self.text = previous_text
+            self.cursor_pos = previous_cursor
+            
+            # Clear selection
+            self.selection_start = None
+            self.selection_end = None
+            
+            return True
+        return False
+    
+    def _redo(self):
+        """Redo the last undone action"""
+        if self.redo_stack:
+            # Save current state to undo stack
+            self.undo_stack.append((self.text, self.cursor_pos))
+            
+            # Restore next state
+            next_text, next_cursor = self.redo_stack.pop()
+            self.text = next_text
+            self.cursor_pos = next_cursor
+            
+            # Clear selection
+            self.selection_start = None
+            self.selection_end = None
+            
+            return True
+        return False
         
     def handle_event(self, event):
         """Handle input events"""
@@ -219,12 +275,30 @@ class EditableText:
             if self.rect.collidepoint(event.pos):
                 self.focused = True
                 self.cursor_pos = self._pos_to_cursor(event.pos)
-                self.selection_start = None
-                self.selection_end = None
+                # Start selection
+                self.selection_start = self.cursor_pos
+                self.selection_end = self.cursor_pos
+                self.is_selecting = True
                 return True
             else:
                 self.focused = False
+                self.is_selecting = False
                 return False
+        
+        if event.type == pygame.MOUSEBUTTONUP:
+            if self.is_selecting:
+                self.is_selecting = False
+                # Clear selection if start and end are the same (just a click)
+                if self.selection_start == self.selection_end:
+                    self.selection_start = None
+                    self.selection_end = None
+                return True
+        
+        if event.type == pygame.MOUSEMOTION:
+            if self.is_selecting and event.buttons[0]:  # Left mouse button held
+                self.selection_end = self._pos_to_cursor(event.pos)
+                self.cursor_pos = self.selection_end
+                return True
         
         if not self.focused:
             return False
@@ -232,58 +306,104 @@ class EditableText:
         if event.type == pygame.KEYDOWN:
             # Handle Ctrl combinations
             if event.mod & pygame.KMOD_CTRL:
-                if event.key == pygame.K_c:  # Copy
+                if event.key == pygame.K_z:  # Undo
+                    return self._undo()
+                elif event.key == pygame.K_y:  # Redo
+                    return self._redo()
+                elif event.key == pygame.K_c:  # Copy
                     self._copy_selection()
                     return True
                 elif event.key == pygame.K_v:  # Paste
+                    self._save_state()  # Save state before paste
                     self._paste()
                     return True
                 elif event.key == pygame.K_x:  # Cut
+                    self._save_state()  # Save state before cut
                     self._cut()
                     return True
                 elif event.key == pygame.K_a:  # Select all
                     self.selection_start = 0
                     self.selection_end = len(self.text)
+                    self.cursor_pos = len(self.text)
                     return True
             
             # Handle other keys
             if event.key == pygame.K_BACKSPACE:
-                if self.selection_start is not None and self.selection_end is not None:
+                if self.selection_start is not None and self.selection_end is not None and self.selection_start != self.selection_end:
+                    self._save_state()  # Save state before deletion
                     self._delete_selection()
                 elif self.cursor_pos > 0:
+                    self._save_state()  # Save state before deletion
                     self.text = self.text[:self.cursor_pos-1] + self.text[self.cursor_pos:]
                     self.cursor_pos -= 1
                 return True
             elif event.key == pygame.K_DELETE:
-                if self.selection_start is not None and self.selection_end is not None:
+                if self.selection_start is not None and self.selection_end is not None and self.selection_start != self.selection_end:
+                    self._save_state()  # Save state before deletion
                     self._delete_selection()
                 elif self.cursor_pos < len(self.text):
+                    self._save_state()  # Save state before deletion
                     self.text = self.text[:self.cursor_pos] + self.text[self.cursor_pos+1:]
                 return True
             elif event.key == pygame.K_LEFT:
-                if self.cursor_pos > 0:
-                    self.cursor_pos -= 1
-                self.selection_start = None
-                self.selection_end = None
+                if event.mod & pygame.KMOD_SHIFT:
+                    # Shift+Left: extend selection
+                    if self.selection_start is None:
+                        self.selection_start = self.cursor_pos
+                    if self.cursor_pos > 0:
+                        self.cursor_pos -= 1
+                    self.selection_end = self.cursor_pos
+                else:
+                    # Left: move cursor and clear selection
+                    if self.cursor_pos > 0:
+                        self.cursor_pos -= 1
+                    self.selection_start = None
+                    self.selection_end = None
                 return True
             elif event.key == pygame.K_RIGHT:
-                if self.cursor_pos < len(self.text):
-                    self.cursor_pos += 1
-                self.selection_start = None
-                self.selection_end = None
+                if event.mod & pygame.KMOD_SHIFT:
+                    # Shift+Right: extend selection
+                    if self.selection_start is None:
+                        self.selection_start = self.cursor_pos
+                    if self.cursor_pos < len(self.text):
+                        self.cursor_pos += 1
+                    self.selection_end = self.cursor_pos
+                else:
+                    # Right: move cursor and clear selection
+                    if self.cursor_pos < len(self.text):
+                        self.cursor_pos += 1
+                    self.selection_start = None
+                    self.selection_end = None
                 return True
             elif event.key == pygame.K_HOME:
-                self.cursor_pos = 0
-                self.selection_start = None
-                self.selection_end = None
+                if event.mod & pygame.KMOD_SHIFT:
+                    # Shift+Home: select to beginning
+                    if self.selection_start is None:
+                        self.selection_start = self.cursor_pos
+                    self.cursor_pos = 0
+                    self.selection_end = self.cursor_pos
+                else:
+                    # Home: move to beginning and clear selection
+                    self.cursor_pos = 0
+                    self.selection_start = None
+                    self.selection_end = None
                 return True
             elif event.key == pygame.K_END:
-                self.cursor_pos = len(self.text)
-                self.selection_start = None
-                self.selection_end = None
+                if event.mod & pygame.KMOD_SHIFT:
+                    # Shift+End: select to end
+                    if self.selection_start is None:
+                        self.selection_start = self.cursor_pos
+                    self.cursor_pos = len(self.text)
+                    self.selection_end = self.cursor_pos
+                else:
+                    # End: move to end and clear selection
+                    self.cursor_pos = len(self.text)
+                    self.selection_start = None
+                    self.selection_end = None
                 return True
             elif event.unicode and event.unicode.isprintable():
-                if self.selection_start is not None and self.selection_end is not None:
+                self._save_state()  # Save state before typing
+                if self.selection_start is not None and self.selection_end is not None and self.selection_start != self.selection_end:
                     self._delete_selection()
                 self.text = self.text[:self.cursor_pos] + event.unicode + self.text[self.cursor_pos:]
                 self.cursor_pos += 1
@@ -391,13 +511,14 @@ class PasswordUI:
             self.font = pygame.font.Font(font_path, 22)  # Slightly smaller for better fit
             self.title_font = pygame.font.Font(font_path, 28) # Slightly smaller
             self.small_font = pygame.font.Font(font_path, 18) # Slightly smaller
+            print("Successfully loaded custom font: Unifontexmono-2vrqo.ttf")
         except (pygame.error, FileNotFoundError) as e:
             print(f"Could not load custom font: {e}")
             print("Falling back to default font")
             # Fallback to default font if custom font fails to load
-        self.font = pygame.font.Font(None, 24)
-        self.title_font = pygame.font.Font(None, 32)
-        self.small_font = pygame.font.Font(None, 20)
+            self.font = pygame.font.Font(None, 24)
+            self.title_font = pygame.font.Font(None, 32)
+            self.small_font = pygame.font.Font(None, 20)
         
         # Enhanced Color Palette
         self.panel_bg_color = (45, 45, 55)        # Darker blue-gray
@@ -429,6 +550,13 @@ class PasswordUI:
         self.height = 500
         self.x = (screen.get_width() - self.width) // 2
         self.y = (screen.get_height() - self.height) // 2
+        
+        # Close button (X) dimensions
+        self.close_button_size = 30
+        self.close_button_x = self.x + self.width - self.close_button_size - 10
+        self.close_button_y = self.y + 10
+        self.close_button_rect = pygame.Rect(self.close_button_x, self.close_button_y, self.close_button_size, self.close_button_size)
+        self.close_button_hovered = False
         
         # Text widgets
         self.rules_text = None
@@ -496,6 +624,19 @@ class PasswordUI:
         """Handle input events"""
         if not self.visible:
             return False
+        
+        # Handle mouse hover for close button
+        if event.type == pygame.MOUSEMOTION:
+            mouse_pos = pygame.mouse.get_pos()
+            self.close_button_hovered = self.close_button_rect.collidepoint(mouse_pos)
+        
+        # Handle mouse clicks
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_pos = event.pos
+            # Check if close button was clicked
+            if self.close_button_rect.collidepoint(mouse_pos):
+                self.hide()
+                return True
             
         # Handle global shortcuts
         if event.type == pygame.KEYDOWN:
@@ -543,8 +684,10 @@ class PasswordUI:
         # Handle mouse events for rules text
         if self.rules_text:
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if self.rules_text.handle_mouse_down(event.pos):
-                    return True
+                # Only handle if not clicking close button
+                if not self.close_button_rect.collidepoint(event.pos):
+                    if self.rules_text.handle_mouse_down(event.pos):
+                        return True
             elif event.type == pygame.MOUSEMOTION:
                 if event.buttons[0]:  # Left button held
                     if self.rules_text.handle_mouse_drag(event.pos):
@@ -606,6 +749,27 @@ class PasswordUI:
         pygame.draw.rect(self.screen, self.panel_bg_color, panel_rect, border_radius=10) # Added rounded corners
         pygame.draw.rect(self.screen, self.panel_border_color, panel_rect, 2, border_radius=10)
         
+        # Draw close button (X)
+        close_button_color = (200, 100, 100) if self.close_button_hovered else (150, 150, 160)
+        close_button_bg_color = (70, 70, 80) if self.close_button_hovered else (60, 60, 70)
+        
+        # Draw close button background
+        pygame.draw.rect(self.screen, close_button_bg_color, self.close_button_rect, border_radius=3)
+        pygame.draw.rect(self.screen, close_button_color, self.close_button_rect, 2, border_radius=3)
+        
+        # Draw X symbol
+        center_x = self.close_button_rect.centerx
+        center_y = self.close_button_rect.centery
+        offset = 8
+        
+        # Draw the X lines
+        pygame.draw.line(self.screen, close_button_color, 
+                        (center_x - offset, center_y - offset), 
+                        (center_x + offset, center_y + offset), 3)
+        pygame.draw.line(self.screen, close_button_color, 
+                        (center_x + offset, center_y - offset), 
+                        (center_x - offset, center_y + offset), 3)
+        
         # Draw title
         title_text = self.title_font.render("Password Required", True, self.title_text_color)
         title_x = self.x + (self.width - title_text.get_width()) // 2
@@ -659,7 +823,12 @@ class PasswordUI:
             valid_count = sum(1 for result in self.validation_results.values() if result) if self.validation_results else 0
             total_collected = len(self.collected_rules)
             total_required = self.door.required_rules if self.door else total_collected
-            validation_text = f"Rules satisfied: {valid_count}/{total_collected} | Total required: {total_collected}/{total_required}"
+            
+            # Character count
+            char_count = len(self.password_input.text)
+            char_count_text = f"Characters: {char_count}"
+            
+            validation_text = f"Rules satisfied: {valid_count}/{total_collected} | Total required: {total_collected}/{total_required} | {char_count_text}"
             validation_color = self.satisfied_rule_color if valid_count == total_collected and total_collected >= total_required and total_collected > 0 else self.unsatisfied_rule_color
             validation_surface = self.small_font.render(validation_text, True, validation_color)
             self.screen.blit(validation_surface, (self.x + panel_padding, validation_text_y))
@@ -676,6 +845,7 @@ class MessageUI:
         
         try:
             self.font = pygame.font.Font(font_path, 20) # Adjusted size
+            print("Successfully loaded custom font for MessageUI: Unifontexmono-2vrqo.ttf")
         except (pygame.error, FileNotFoundError) as e:
             print(f"Could not load custom font for MessageUI: {e}")
             # Fallback to default font if custom font fails to load
@@ -738,11 +908,12 @@ class RulesDisplayUI:
         try:
             self.font = pygame.font.Font(font_path, 16) # Adjusted size
             self.title_font = pygame.font.Font(font_path, 18) # Adjusted size
+            print("Successfully loaded custom font for RulesDisplayUI: Unifontexmono-2vrqo.ttf")
         except (pygame.error, FileNotFoundError) as e:
             print(f"Could not load custom font for RulesDisplayUI: {e}")
             # Fallback to default font if custom font fails to load
-        self.font = pygame.font.Font(None, 18)
-        self.title_font = pygame.font.Font(None, 20)
+            self.font = pygame.font.Font(None, 18)
+            self.title_font = pygame.font.Font(None, 20)
         
     def render(self, rules: List[str]):
         """Render the rules display"""
