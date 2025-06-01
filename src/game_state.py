@@ -1,6 +1,8 @@
 import re
 from typing import List, Dict, Set
 import random
+import datetime
+import base64
 
 class PasswordRuleManager:
     """Manages password rules with separation between tutorial and extended rules"""
@@ -29,7 +31,26 @@ class PasswordRuleManager:
             "Your password must contain a palindrome that's exactly 7 characters long.",
             "Your password must begin with the final word ever spoken in The Lord of the Rings.",
             "Your password must contain the correct answer to this question: 'Fill in the blanks: CMSC 141 is the ___ course ever! 'best' or 'worst''",
-            "Your password must contain the current level you are on in text form."
+            "Your password must contain the current level you are on in text form.",
+            "Your password must contain the sum of the numbers of the current hour and day today mod 7.",
+            "The digits of your password must sum up to a multiple of 141.",
+            "Your password must contain one Japanese hiragana character.",
+            "Your password must contain the 46th-50th decimal digits of pi.",
+            "Your password must contain the first two words of Franz Kafka's novella 'The Metamorphosis'.",
+            "Your password must contain an anagram of the word 'secure'.",
+            "Add the reversed name of the inventor of the world's first computer program.",
+            "Add the answer to this question to the password: 'From a finite alphabet Σ, how many strings can be made?'",
+            "Your password must include a prime number sandwiched between two hash signs.",
+            "From the grammar: S → aSb | ab. What are the only valid strings of length 4?",
+            "Your password must contain a string in the language defined by the regular expression (a*(ab | bb)*) over the alphabet {a,b}.",
+            "Include a base64-encoded version of the word 'Dulaca'.",
+            "Your password must contain a valid color hex code.",
+            "Your password must have the year that Filipino tennis player Alex Eala debuted in professional tennis. The year must be written in base 2 format.",
+            "The length of your password must be a prime number.",
+            "Your password must contain the answer to this question 'Complete the line from one of Sabrina Carpenter's songs: 'You fit every stereotype, \"___\"'.",
+            "Your password must contain the answer to this question 'Are nondeterministic finite automata more powerful than their equivalent deterministic finite automata?'",
+            "The sum of the numbers of your password must be a multiple of 14.",
+            "The sum of the roman numerals of your password must be a multiple of 21 (only uppercase letters count for roman numerals)."
         ]
     
     def get_tutorial_rules(self) -> List[str]:
@@ -141,6 +162,116 @@ class PasswordRuleManager:
             level_names = ["level-0", "level-1", "level-2", "level-3", "level-4", "zero", "one", "two", "three", "four"]
             password_lower = password.lower()
             return any(level_name in password_lower for level_name in level_names)
+        
+        # Your password must contain the sum of the numbers of the current hour and day today mod 7
+        elif "sum of the numbers of the current hour and day today mod 7" in rule_lower:
+            now = datetime.datetime.now()
+            sum_value = (now.hour + now.day) % 7
+            return str(sum_value) in password
+        
+        # The digits of your password must sum up to a multiple of 141
+        elif "digits of your password must sum up to a multiple of 141" in rule_lower:
+            digit_sum = sum(int(char) for char in password if char.isdigit())
+            return digit_sum > 0 and digit_sum % 141 == 0
+        
+        # Your password must contain one Japanese hiragana character
+        elif "contain one japanese hiragana character" in rule_lower:
+            # Hiragana Unicode range: U+3040 to U+309F
+            return any('\u3040' <= char <= '\u309F' for char in password)
+        
+        # Your password must contain the 46th-50th decimal digits of pi
+        elif "46th-50th decimal digits of pi" in rule_lower:
+            pi_digits = "37510"  # 46th-50th decimal digits of pi
+            return pi_digits in password
+        
+        # Your password must contain the first two words of Franz Kafka's "The Metamorphosis"
+        elif "first two words of franz kafka" in rule_lower and "metamorphosis" in rule_lower:
+            return "One morning" in password or "one morning" in password.lower()
+        
+        # Your password must contain an anagram of the word "secure"
+        elif "anagram of the word 'secure'" in rule_lower:
+            secure_letters = sorted("secure")
+            # Check all 6-letter substrings for anagrams
+            for i in range(len(password) - 5):
+                substring = password[i:i+6].lower()
+                if sorted(substring) == secure_letters:
+                    return True
+            return False
+        
+        # Add the reversed name of the inventor of the world's first computer program
+        elif "reversed name of the inventor of the world's first computer program" in rule_lower:
+            # Ada Lovelace -> "adA" (first name reversed) or "ecalevoL" (last name reversed)
+            password_lower = password.lower()
+            return "ada" in password_lower or "eclaya" in password_lower or "ecalvol" in password_lower
+        
+        # From a finite alphabet Σ, how many strings can be made?
+        elif "from a finite alphabet" in rule_lower and "how many strings can be made" in rule_lower:
+            return "countably infinite" in password.lower() or "countably_infinite" in password.lower()
+        
+        # Your password must include a prime number sandwiched between two hash signs
+        elif "prime number sandwiched between two hash signs" in rule_lower:
+            # Common primes to check for
+            primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113]
+            for prime in primes:
+                if f"#{prime}#" in password:
+                    return True
+            return False
+        
+        # From the grammar: S → aSb | ab. What are the only valid strings of length 4?
+        elif "grammar" in rule_lower and "asb" in rule_lower and "valid strings of length 4" in rule_lower:
+            return "aabb" in password
+        
+        # Your password must contain a string in the language defined by (a*(ab | bb)*)
+        elif "regular expression" in rule_lower and "a*(ab | bb)*" in rule_lower:
+            # Check for patterns like: a, aa, ab, bb, aab, abb, abab, abbb, etc.
+            regex_pattern = r'a*(ab|bb)*'
+            return bool(re.search(regex_pattern, password))
+        
+        # Include a base64-encoded version of the word "Dulaca"
+        elif "base64-encoded version of the word 'dulaca'" in rule_lower:
+            return "RHVsYWNh" in password  # base64.b64encode("Dulaca".encode()).decode()
+        
+        # Your password must contain a valid color hex code
+        elif "valid color hex code" in rule_lower:
+            # Match hex color codes like #FF0000, #123456, etc.
+            hex_pattern = r'#[0-9A-Fa-f]{6}'
+            return bool(re.search(hex_pattern, password))
+        
+        # Alex Eala debut year in base 2 format
+        elif "alex eala debuted" in rule_lower and "base 2 format" in rule_lower:
+            return "11111100100" in password  # 2020 in binary
+        
+        # The length of your password must be a prime number
+        elif "length of your password must be a prime number" in rule_lower:
+            length = len(password)
+            if length < 2:
+                return False
+            for i in range(2, int(length ** 0.5) + 1):
+                if length % i == 0:
+                    return False
+            return True
+        
+        # Sabrina Carpenter song lyric completion
+        elif "sabrina carpenter" in rule_lower and "you fit every stereotype" in rule_lower:
+            return "Send a pic" in password or "send a pic" in password.lower()
+        
+        # Are nondeterministic finite automata more powerful?
+        elif "nondeterministic finite automata more powerful" in rule_lower:
+            return "no" in password.lower()
+        
+        # The sum of the numbers of your password must be a multiple of 14
+        elif "sum of the numbers of your password must be a multiple of 14" in rule_lower:
+            numbers = re.findall(r'\d+', password)
+            if not numbers:
+                return False
+            number_sum = sum(int(num) for num in numbers)
+            return number_sum % 14 == 0
+        
+        # The sum of the roman numerals must be a multiple of 21
+        elif "sum of the roman numerals" in rule_lower and "multiple of 21" in rule_lower:
+            roman_values = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
+            total = sum(roman_values.get(char, 0) for char in password if char in roman_values)
+            return total > 0 and total % 21 == 0
         
         # Default case - unknown rule
         return True
