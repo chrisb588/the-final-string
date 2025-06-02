@@ -1095,7 +1095,9 @@ class PasswordUI:
     def _submit_password(self):
         """Submit the current password"""
         if self.door and self.callback and self.password_input:
-            result = self.door.try_password(self.password_input.text)
+            # Pass the combined rules count (accumulated + current) to the door validation
+            combined_rules_count = len(self.collected_rules) if self.collected_rules else 0
+            result = self.door.try_password(self.password_input.text, combined_rules_count)
             self.callback(result)
             
             if result.get("success", False):

@@ -117,10 +117,10 @@ class MultiTileNote(MultiTileInteractable):
                 
                 # Get custom message for this NPC with rule
                 if self.rule:
-                    custom_message = f"You found a rule: {self.rule} (covers {len(self.tiles)} tiles)"
+                    custom_message = f"You found a rule: {self.rule}"
                 else:
                     # Fallback to generic message if NPC not found
-                    custom_message = f"You found a note (covers {len(self.tiles)} tiles)"
+                    custom_message = f"You found a note"
                 
                 return {
                     "type": "note_collected", 
@@ -209,11 +209,14 @@ class Door(Interactable):
         """Set the required rules count (for accumulated rules from previous levels)"""
         self.required_rules = required_rules
     
-    def try_password(self, password: str) -> Dict[str, Any]:
+    def try_password(self, password: str, combined_rules_count: int = None) -> Dict[str, Any]:
         """Try to open the door with a password"""
         validation_results = game_state.validate_password(password)
         is_valid = game_state.is_password_valid(password)
-        collected_count = game_state.get_rules_count()
+        
+        # Use combined rules count if provided (includes accumulated + current), 
+        # otherwise fall back to just current level rules
+        collected_count = combined_rules_count if combined_rules_count is not None else game_state.get_rules_count()
         
         # Check both: password satisfies all collected rules AND enough rules have been collected
         if is_valid and collected_count >= self.required_rules:
@@ -289,43 +292,113 @@ class NPC(Interactable):
     NPC_MESSAGES = {
         "Resting Goblin": {
             "with_rule": "I heard from the other clan that: {}.",
-            "no_rule": "Dude, I'm hungry. When will this soup cook?"
+            "no_rule": [
+                "Dude, I'm hungry. When will this soup cook?",
+                "These rocks make terrible pillows...",
+                "I wonder what the other clans are up to today.",
+                "Ugh, my back hurts from sitting on this stone.",
+                "Maybe I should have stayed in the cave today.",
+                "This waiting around is so boring!"
+            ]
         },
         "Evil Chest": {
             "with_rule": "Bwahaha! The dungeoneer doesn't know that {}.",
-            "no_rule": "Get the eff out! Or else I'll eat you! 😈"
+            "no_rule": [
+                "Get the eff out! Or else I'll eat you! 😈",
+                "I'm plotting your demise... come back later!",
+                "My teeth are getting sharper by the minute!",
+                "You smell like fear... delicious!",
+                "Bwahaha! Your doom approaches!",
+                "I'm too busy being evil to chat right now!"
+            ]
         },
         "Mushroom Guy": {
             "with_rule": "Here is the secret passcode little one: {}",
-            "no_rule": "I have nothing to say to you little one."
+            "no_rule": [
+                "I have nothing to say to you little one.",
+                "The forest speaks, but not today, little one.",
+                "Come back when the mushrooms bloom, little one.",
+                "The ancient wisdom is sleeping, little one.",
+                "Perhaps the wind will carry answers, little one.",
+                "My cap is heavy with thoughts, little one."
+            ]
         },
         "Skelly Henchman": {
             "with_rule": "Here is one of the hints to the exit: {}. Now go away!",
-            "no_rule": "Hey, get out of our base!"
+            "no_rule": [
+                "Hey, get out of our base!",
+                "You're not authorized to be here!",
+                "The captain will hear about this intrusion!",
+                "Guards don't chat with trespassers!",
+                "Move along before I call backup!",
+                "This is a restricted skeleton zone!"
+            ]
         },
         "Skelly Captain": {
             "with_rule": "Fine, I will be generous to you. From the headmaster's words: {}.",
-            "no_rule": "I have triumphed over a hundred armies in my previous life. Begone from my throne or taste my stifled wrath!"
+            "no_rule": [
+                "I have triumphed over a hundred armies in my previous life. Begone from my throne or taste my stifled wrath!",
+                "A true commander never reveals strategy to peasants!",
+                "My tactical brilliance is beyond your comprehension!",
+                "I once commanded legions across burning fields!",
+                "The dead follow my orders without question!",
+                "Glory and conquest... those were the days!"
+            ]
         },
         "Guardian of the Agaricales": {
             "with_rule": "No one, not you, shall enter the realm of my dwelling. But allow me to convey you one thing: {}",
-            "no_rule": "No one, not you, shall enter the realm of my dwelling."
+            "no_rule": [
+                "No one, not you, shall enter the realm of my dwelling.",
+                "The sacred fungi must remain undisturbed.",
+                "Ancient spores carry memories you cannot fathom.",
+                "The mycelium network speaks of your presence.",
+                "Turn back, the mushroom realm is forbidden.",
+                "My watch has lasted centuries, and continues still."
+            ]
         },
         "Mr. Froggy": {
             "with_rule": "Buwakak! The rule is {}.",
-            "no_rule": "Buwakak!"
+            "no_rule": [
+                "Buwakak!",
+                "Ribbit ribbit buwakak!",
+                "Buwakak ribbit!",
+                "Kero kero buwakak!",
+                "Buwakak buwakak!",
+                "Ribbit... buwakak?"
+            ]
         },
         "Goblin Miner": {
             "with_rule": "Oh look! This ore has an engraving: {}",
-            "no_rule": "Man, I haven't found any high-value ores today."
+            "no_rule": [
+                "Man, I haven't found any high-value ores today.",
+                "This pickaxe is getting dull...",
+                "Wonder if there's gold deeper down?",
+                "My back aches from all this digging.",
+                "These tunnels keep getting longer!",
+                "I swear I heard something echo down there..."
+            ]
         },
         "Alagad ni Colonel Sanders": {
             "with_rule": "Tiktilaok! The mystery spice to season KFC's chicken is: {}",
-            "no_rule": "Tiktilaok! Mr. Sanders won't allow me to share with you the mystery spice to season KFC's chicken."
+            "no_rule": [
+                "Tiktilaok! Mr. Sanders won't allow me to share with you the mystery spice to season KFC's chicken.",
+                "Tiktilaok! The Colonel's secret dies with me!",
+                "Tiktilaok! Eleven herbs and spices remain hidden!",
+                "Tiktilaok! The recipe vault is sealed tight!",
+                "Tiktilaok! Only the chosen know the true seasoning!",
+                "Tiktilaok! Finger lickin' good secrets are safe!"
+            ]
         },
         "Moo-chan": {
             "with_rule": "Konnichiwa! The rule is {} imnida.😸✨",
-            "no_rule": "Konnichiwa! I don't have the rules. Gomen! 🙏💔"
+            "no_rule": [
+                "Konnichiwa! I don't have the rules. Gomen! 🙏💔",
+                "Nya~ I'm just here being kawaii! ✨😺",
+                "Moo moo~ Nothing to share today! 🐄💕",
+                "Konnichiwa! Maybe next time, desu ne? 😊🌸",
+                "Kawaii desu~ But no secrets today! ✨🙈",
+                "Moo~ I'm too busy being cute! 💖😸"
+            ]
         }
     }
     
@@ -369,7 +442,7 @@ class NPC(Interactable):
             self.collected = True
             
             if self.npc_name in self.NPC_MESSAGES:
-                casual_message = self.NPC_MESSAGES[self.npc_name]["no_rule"]
+                casual_message = random.choice(self.NPC_MESSAGES[self.npc_name]["no_rule"])
                 message = f"{self.npc_name}: {casual_message}"
             else:
                 # Fallback to generic messages if NPC not found
@@ -413,10 +486,10 @@ class MultiTileNPC(MultiTileInteractable):
                 # Get custom message for this NPC with rule
                 if self.npc_name in NPC.NPC_MESSAGES:
                     message_template = NPC.NPC_MESSAGES[self.npc_name]["with_rule"]
-                    custom_message = f"{self.npc_name}: {message_template.format(self.rule)} (I'm quite large, covering {len(self.tiles)} tiles!)"
+                    custom_message = f"{self.npc_name}: {message_template.format(self.rule)}"
                 else:
                     # Fallback to generic message if NPC not found
-                    custom_message = f"{self.npc_name}: Let me tell you a secret: {self.rule} (I'm quite large, covering {len(self.tiles)} tiles!)"
+                    custom_message = f"{self.npc_name}: Let me tell you a secret: {self.rule}"
                 
                 return {
                     "type": "note_collected", 
@@ -435,8 +508,8 @@ class MultiTileNPC(MultiTileInteractable):
             self.collected = True
             
             if self.npc_name in NPC.NPC_MESSAGES:
-                casual_message = NPC.NPC_MESSAGES[self.npc_name]["no_rule"]
-                message = f"{self.npc_name}: {casual_message} (I'm quite large, covering {len(self.tiles)} tiles!)"
+                casual_message = random.choice(NPC.NPC_MESSAGES[self.npc_name]["no_rule"])
+                message = f"{self.npc_name}: {casual_message}"
             else:
                 # Fallback to generic messages if NPC not found
                 casual_messages = [

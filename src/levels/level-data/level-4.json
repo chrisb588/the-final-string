@@ -25436,6 +25436,28 @@
           "x": 20,
           "y": 31,
           "type": "empty"
+        },
+        {
+          "x": 21,
+          "y": 26,
+          "type": "npc",
+          "npc_name": "Alagad ni Colonel Sanders"
+        },
+        {
+          "x": 47,
+          "y": 30,
+          "type": "multi_npc",
+          "npc_name": "Moo-chan",
+          "coordinates": [
+            [
+              47,
+              30
+            ],
+            [
+              48,
+              30
+            ]
+          ]
         }
       ],
       "collider": false

@@ -30329,11 +30329,6 @@
           ]
         },
         {
-          "x": 117,
-          "y": 96,
-          "type": "empty"
-        },
-        {
           "x": 66,
           "y": 34,
           "type": "multi_empty",
@@ -30379,16 +30374,6 @@
         {
           "x": 62,
           "y": 98,
-          "type": "empty"
-        },
-        {
-          "x": 115,
-          "y": 97,
-          "type": "empty"
-        },
-        {
-          "x": 119,
-          "y": 97,
           "type": "empty"
         },
         {
@@ -31480,6 +31465,254 @@
             [
               39,
               61
+            ]
+          ]
+        },
+        {
+          "x": 28,
+          "y": 95,
+          "type": "npc",
+          "npc_name": "Resting Goblin"
+        },
+        {
+          "x": 26,
+          "y": 95,
+          "type": "npc",
+          "npc_name": "Resting Goblin"
+        },
+        {
+          "x": 24,
+          "y": 99,
+          "type": "npc",
+          "npc_name": "Resting Goblin"
+        },
+        {
+          "x": 26,
+          "y": 99,
+          "type": "npc",
+          "npc_name": "Resting Goblin"
+        },
+        {
+          "x": 117,
+          "y": 96,
+          "type": "npc",
+          "npc_name": "Evil Chest"
+        },
+        {
+          "x": 115,
+          "y": 97,
+          "type": "npc",
+          "npc_name": "Evil Chest"
+        },
+        {
+          "x": 119,
+          "y": 97,
+          "type": "npc",
+          "npc_name": "Evil Chest"
+        },
+        {
+          "x": 11,
+          "y": 61,
+          "type": "multi_npc",
+          "npc_name": "Skelly Henchman",
+          "coordinates": [
+            [
+              11,
+              61
+            ],
+            [
+              11,
+              62
+            ]
+          ]
+        },
+        {
+          "x": 16,
+          "y": 66,
+          "type": "multi_npc",
+          "npc_name": "Skelly Henchman",
+          "coordinates": [
+            [
+              16,
+              66
+            ],
+            [
+              16,
+              67
+            ]
+          ]
+        },
+        {
+          "x": 4,
+          "y": 66,
+          "type": "multi_npc",
+          "npc_name": "Skelly Henchman",
+          "coordinates": [
+            [
+              4,
+              66
+            ],
+            [
+              4,
+              65
+            ]
+          ]
+        },
+        {
+          "x": 18,
+          "y": 66,
+          "type": "multi_npc",
+          "npc_name": "Skelly Henchman",
+          "coordinates": [
+            [
+              18,
+              66
+            ],
+            [
+              18,
+              67
+            ]
+          ]
+        },
+        {
+          "x": 6,
+          "y": 63,
+          "type": "multi_npc",
+          "npc_name": "Skelly Captain",
+          "coordinates": [
+            [
+              6,
+              63
+            ],
+            [
+              6,
+              62
+            ]
+          ]
+        },
+        {
+          "x": 29,
+          "y": 4,
+          "type": "multi_npc",
+          "npc_name": "Guardian of the Agaricales",
+          "coordinates": [
+            [
+              29,
+              4
+            ],
+            [
+              29,
+              5
+            ],
+            [
+              30,
+              4
+            ],
+            [
+              30,
+              5
+            ]
+          ]
+        },
+        {
+          "x": 25,
+          "y": 6,
+          "type": "npc",
+          "npc_name": "Mr. Froggy"
+        },
+        {
+          "x": 110,
+          "y": 27,
+          "type": "multi_npc",
+          "npc_name": "Goblin Miner",
+          "coordinates": [
+            [
+              110,
+              27
+            ],
+            [
+              110,
+              28
+            ]
+          ]
+        },
+        {
+          "x": 106,
+          "y": 32,
+          "type": "multi_npc",
+          "npc_name": "Goblin Miner",
+          "coordinates": [
+            [
+              106,
+              32
+            ],
+            [
+              106,
+              33
+            ]
+          ]
+        },
+        {
+          "x": 112,
+          "y": 28,
+          "type": "multi_npc",
+          "npc_name": "Goblin Miner",
+          "coordinates": [
+            [
+              112,
+              28
+            ],
+            [
+              112,
+              29
+            ]
+          ]
+        },
+        {
+          "x": 91,
+          "y": 7,
+          "type": "multi_npc",
+          "npc_name": "Goblin Miner",
+          "coordinates": [
+            [
+              91,
+              7
+            ],
+            [
+              91,
+              8
+            ]
+          ]
+        },
+        {
+          "x": 94,
+          "y": 18,
+          "type": "multi_npc",
+          "npc_name": "Goblin Miner",
+          "coordinates": [
+            [
+              94,
+              18
+            ],
+            [
+              94,
+              19
+            ]
+          ]
+        },
+        {
+          "x": 96,
+          "y": 18,
+          "type": "multi_npc",
+          "npc_name": "Goblin Miner",
+          "coordinates": [
+            [
+              96,
+              18
+            ],
+            [
+              96,
+              19
             ]
           ]
         }
