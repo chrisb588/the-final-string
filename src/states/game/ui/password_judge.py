@@ -57,6 +57,12 @@ class PasswordUI:
         self.rules_text = None
         self.password_input = None
 
+        self.validate_button_rect = None
+        self.validate_button_hovered = False
+        self.validate_button_color = (80, 130, 180)  # Default blue
+        self.validate_button_hover_color = (100, 150, 200)  # Lighter blue when hovered
+        self.validate_button_text_color = (220, 220, 230)  # Light gray text
+
     def _init_font(self):
         """Initialize font with fallback"""
         try:
@@ -67,16 +73,18 @@ class PasswordUI:
             main_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..', '..'))
             
             # Construct path to font in assets directory
-            font_path = os.path.join(main_dir, 'assets', 'fonts', 'UnifontEX.ttf')
+            content_font_path = os.path.join(main_dir, 'assets', 'fonts', 'UnifontEX.ttf')
+            label_font_path = os.path.join(main_dir, 'assets', 'fonts', 'PixelSerif.ttf')
             
             # Load font with error handling
-            if os.path.exists(font_path):
-                self.font = pygame.font.Font(font_path, 22)  # Slightly smaller for better fit
-                self.title_font = pygame.font.Font(font_path, 28) # Slightly smaller
-                self.small_font = pygame.font.Font(font_path, 18) # Slightly smaller
-                print("Successfully loaded custom font: UnifontEX.ttf")
+            if os.path.exists(content_font_path) and os.path.exists(label_font_path):
+                self.font = pygame.font.Font(content_font_path, 20)  
+                self.label_font = pygame.font.Font(label_font_path, 26)
+                self.title_font = pygame.font.Font(label_font_path, 42) 
+                self.small_font = pygame.font.Font(content_font_path, 16) 
+                print("Successfully loaded custom fonts")
             else:
-                print(f"Warning: Font file not found at {font_path}")
+                print(f"Warning: Font file not found at {content_font_path} and {label_font_path}")
                 self.font = pygame.font.Font(None, 32)
         except (pygame.error, IOError) as e:
             print(f"Warning: Could not initialize PauseButton font: {e}")
@@ -91,10 +99,10 @@ class PasswordUI:
         self.close_callback = close_callback  # New callback for when UI is closed
         self.collected_rules = collected_rules or []
         self.validation_results = {}
-        self.message = "Enter a password that follows all the rules:"
+        self.message = "Your Password Must Adhere to the Ruleset"
         
         # Create rules text showing total required rules with collected/uncollected status
-        rules_content = "Password Requirements:\n\n"
+        rules_content = ""
         
         # Get the total number of rules required (from door's required_rules)
         total_required = door.required_rules if door else len(rules)
@@ -104,7 +112,7 @@ class PasswordUI:
         
         # Track which lines belong to which rules for proper validation coloring
         self.rule_line_mapping = {}  # Maps line index to rule index
-        current_line_index = 2  # Start after "Password Requirements:" and empty line
+        current_line_index = 0  # Start after "Password Requirements:" and empty line
         
         # Show all rule slots (collected + uncollected) with text wrapping
         for i in range(total_required):
@@ -125,18 +133,25 @@ class PasswordUI:
                 self.rule_line_mapping[current_line_index] = i  # Mark placeholder line
                 current_line_index += 2  # +2 for rule line and empty line
         
-        rules_rect_y_position = self.y + 80 # Assuming 80px for title and message area
+        rules_rect_y_position = self.y + 120 # Assuming 80px for title and message area
         new_rules_rect_height = 250 # Reduced from 280px
         rules_rect = pygame.Rect(self.x + 20, rules_rect_y_position, self.width - 40, new_rules_rect_height)
-        
+
         # Update existing rules text or create new one
         if self.rules_text:
             self.rules_text.update_content(rules_content)
-            self.rules_text.rect = rules_rect # Ensure rect is updated
-            self.rules_text.set_ui_manager(self) # Ensure ui_manager is set
+            self.rules_text.rect = rules_rect
         else:
-            self.rules_text = SelectableText(rules_content, self.small_font, self.text_color, rules_rect, self.selection_bg_color)
-            self.rules_text.set_ui_manager(self) # Set ui_manager
+            self.rules_text = SelectableText(
+                rules_content, 
+                self.small_font, 
+                self.text_color, 
+                rules_rect, 
+                self.selection_bg_color,
+                interactive=True  # Make rules text non-interactive
+            )
+
+        self.rules_text.set_ui_manager(self)
         self.rules_text.max_visible_lines = max(1, self.rules_text.rect.height // self.rules_text.line_height)
         self.rules_text.max_scroll = max(0, len(self.rules_text.lines) - self.rules_text.max_visible_lines)
         if self.rules_text.max_scroll > 0 and len(self.rules_text.lines) > self.rules_text.max_visible_lines:
@@ -180,6 +195,8 @@ class PasswordUI:
         if event.type == pygame.MOUSEMOTION:
             mouse_pos = pygame.mouse.get_pos()
             self.close_button_hovered = self.close_button_rect.collidepoint(mouse_pos)
+            if self.validate_button_rect:
+                self.validate_button_hovered = self.validate_button_rect.collidepoint(event.pos)
         
         # Handle mouse clicks
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -188,6 +205,10 @@ class PasswordUI:
             if self.close_button_rect.collidepoint(mouse_pos):
                 self.hide()
                 return True
+            if event.button == 1 and self.validate_button_rect:  # Left click
+                if self.validate_button_rect.collidepoint(event.pos):
+                    self._validate_password()
+                    return True
             
         # Handle global shortcuts
         if event.type == pygame.KEYDOWN:
@@ -258,13 +279,15 @@ class PasswordUI:
     def _submit_password(self):
         """Submit the current password"""
         if self.door and self.callback and self.password_input:
-            result = self.door.try_password(self.password_input.text)
-            self.callback(result)
+            # Pass the combined rules count (accumulated + current) to the door validation
+            combined_rules_count = len(self.collected_rules) if self.collected_rules else 0
+            result = self.door.try_password(self.password_input.text, combined_rules_count)
             
+            self.callback(result)  # Call callback after handling
+
+            # Remove message display and directly handle result
             if result.get("success", False):
-                self.hide()
-            else:
-                self.message = result.get("message", "Incorrect password")
+                self.hide()  # Close the password UI immediately on success
     
     def _update_validation(self):
         """Update real-time validation results"""
@@ -334,19 +357,27 @@ class PasswordUI:
                         (center_x - offset, center_y + offset), 3)
         
         # Draw title
-        title_text = self.title_font.render("Password Required", True, self.title_text_color)
+        title_text = self.title_font.render("The Password Judge", True, self.title_text_color)
         title_x = self.x + (self.width - title_text.get_width()) // 2
         self.screen.blit(title_text, (title_x, self.y + panel_padding))
-        
+
         # Draw message
-        message_text_y = self.y + panel_padding + title_text.get_height() + 10
-        message_text = self.font.render(self.message, True, self.message_color)
+        message_text_y = self.y + panel_padding + title_text.get_height() + 5
+        message_text = self.small_font.render(self.message, True, self.message_color)
         message_x = self.x + (self.width - message_text.get_width()) // 2
         self.screen.blit(message_text, (message_x, message_text_y))
-        
-        rules_rect_y = message_text_y + message_text.get_height() + 15
+
+        # Draw rules title
+        rules_title = self.label_font.render("The Ruleset", True, self.text_color)
+        rules_title_x = self.x + (self.width - rules_title.get_width()) // 2
+        rules_title_y = message_text_y + message_text.get_height() + 20  # Small gap after message
+        self.screen.blit(rules_title, (rules_title_x, rules_title_y))
+
+        # Draw rules rectangle
+        rules_rect_y = rules_title_y + rules_title.get_height() + 5  # Small gap after rules title
         rules_rect = pygame.Rect(self.x + panel_padding, rules_rect_y, self.width - panel_padding*2, rules_rect_height)
-        
+
+        # Inside the render method where line colors are set
         if self.rules_text:
             self.rules_text.rect = rules_rect # Update rect in case it changed
             
@@ -354,30 +385,17 @@ class PasswordUI:
             line_colors = []
             for line_index, line in enumerate(self.rules_text.lines):
                 if line_index in self.rule_line_mapping:
-                    # This line belongs to a specific rule
                     rule_index = self.rule_line_mapping[line_index]
-                    
-                    if line.strip().endswith("????"):
-                        # Uncollected rule placeholder
-                        line_colors.append(self.hidden_rule_color)
+                    if rule_index < len(self.collected_rules):
+                        # Get validation result for this rule
+                        rule = self.collected_rules[rule_index]
+                        is_valid = self.validation_results.get(rule, False)
+                        line_colors.append(self.satisfied_rule_color if is_valid else self.unsatisfied_rule_color)
                     else:
-                        # Check validation for this specific rule
-                        rule_satisfied = False
-                        if self.validation_results and rule_index < len(self.collected_rules):
-                            # Get the actual rule text and check validation
-                            actual_rule = self.collected_rules[rule_index]
-                            for rule, satisfied in self.validation_results.items():
-                                if rule == actual_rule:
-                                    rule_satisfied = satisfied
-                                    break
-                        
-                        # Apply appropriate color
-                        if rule_satisfied:
-                            line_colors.append(self.satisfied_rule_color)
-                        else:
-                            line_colors.append(self.unsatisfied_rule_color)
+                        # Hidden/uncollected rule
+                        line_colors.append(self.hidden_rule_color)
                 else:
-                    # Header text or empty lines use default color
+                    # Non-rule lines (empty lines, headers, etc.)
                     line_colors.append(self.text_color)
             
             self.rules_text.set_line_colors(line_colors)
@@ -386,7 +404,7 @@ class PasswordUI:
         # --- Input Label and Field --- 
         current_y = rules_rect_y + rules_rect_height + input_field_y_offset
 
-        input_label = self.font.render("Enter Password:", True, self.text_color)
+        input_label = self.font.render("Type your password on the validator field:", True, self.text_color)
         self.screen.blit(input_label, (self.x + panel_padding, current_y))
         current_y += input_label.get_height() + input_label_to_field_offset
         
@@ -415,3 +433,37 @@ class PasswordUI:
             validation_color = self.satisfied_rule_color if valid_count == total_collected and total_collected >= total_required and total_collected > 0 else self.unsatisfied_rule_color
             validation_surface = self.small_font.render(validation_text, True, validation_color)
             self.screen.blit(validation_surface, (self.x + panel_padding, validation_text_y))
+
+        validation_text_height = self.small_font.get_height()
+        button_y = validation_text_y + validation_text_height + 15  # Space after validation text
+        
+        # Create button rectangle
+        button_width = 120
+        button_height = 35
+        button_x = self.x + (self.width - button_width) // 2  # Center horizontally
+        self.validate_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+        
+        # Draw button with hover effect
+        button_color = self.validate_button_hover_color if self.validate_button_hovered else self.validate_button_color
+        pygame.draw.rect(self.screen, button_color, self.validate_button_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (100, 100, 110), self.validate_button_rect, 2, border_radius=5)  # Border
+        
+        # Draw button text
+        button_text = self.font.render("Validate", True, self.validate_button_text_color)
+        text_x = button_x + (button_width - button_text.get_width()) // 2
+        text_y = button_y + (button_height - button_text.get_height()) // 2
+        self.screen.blit(button_text, (text_x, text_y))
+
+    def _validate_password(self):
+        """Validate password and handle result"""
+        if not self.password_input or not self.password_input.text:
+            self.message = "Please enter a password first!"
+            return
+            
+        # Try password on door
+        if self.door and self.callback:
+            result = self.door.try_password(self.password_input.text)
+            self.callback(result)
+            
+            if not result.get("success", False):
+                self.message = "Password doesn't satisfy the ruleset!"

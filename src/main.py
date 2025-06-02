@@ -133,6 +133,13 @@ class GameDemo:
             
             # Handle other UI events
             ui_handled = False
+
+            # Handle fullscreen toggle before UI events
+            if event.type == pygame.KEYDOWN:
+                if (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or \
+                event.key == pygame.K_F11:
+                    self.toggle_fullscreen()
+                    continue
             
             # Let password UI handle events first
             if self.ui_manager.handle_event(event):
@@ -155,12 +162,6 @@ class GameDemo:
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
-
-                # Add fullscreen toggle (Alt + Enter or F11)
-                elif (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or \
-                (event.key == pygame.K_F11):
-                    self.toggle_fullscreen()
-                    continue
                 
                 elif event.key == pygame.K_p or event.key == pygame.K_LEFT:
                     if self.level_manager.load_previous_level():
@@ -310,6 +311,31 @@ class GameDemo:
         
         return True
     
+    def handle_resize(self, width: int, height: int):
+        """Handle window resize events"""
+        # Update screen dimensions
+        self.screen_width = width
+        self.screen_height = height
+        self.windowed_size = (width, height)
+        
+        # Update screen surface
+        if not self.is_fullscreen:
+            self.screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
+        
+        # Reinitialize UI components that depend on screen size
+        if hasattr(self.ui_manager, 'dialogue_box'):
+            self.ui_manager.dialogue_box._init_dimensions()
+        
+        if hasattr(self.ui_manager, 'password_ui'):
+            self.ui_manager.password_ui._init_dimensions()
+        
+        # Update camera viewport
+        if hasattr(self.level_manager, 'camera'):
+            self.level_manager.camera.update_viewport(width, height)
+        
+        # Show popup notification
+        self.ui_manager.show_popup(f"Window resized to {width}x{height}")
+
     def _update_mouse_tile_coords(self):
         """Update mouse tile coordinates based on current mouse position"""
         if not self.level_manager.current_level:
@@ -878,36 +904,38 @@ class GameDemo:
     def handle_password_result(self, result: Dict[str, Any]):
         """Handle password attempt results"""
         if result.get("success", False):
-            # Check if this is a level transition
             if result.get("type") == "level_transition":
                 next_level = result.get("next_level")
-                message = result.get("message", f"Entering {next_level}...")
-                self.ui_manager.show_message(message, 2000)
                 
-                # Store the successful password and set transition flag
-                if self.passwordui.password_input:
-                    self.last_successful_password = self.passwordui.password_input.text
+                # Store successful password
+                if self.ui_manager.password_ui.password_input:
+                    self.last_successful_password = self.ui_manager.password_ui.password_input.text
                 
-                # Accumulate rules from current level (avoid duplicates)
-                current_level_rules = self.ui_manager.rules if self.ui_manager.rules else []
+                # Accumulate rules
+                current_level_rules = self.current_level_rules if self.current_level_rules else []
                 for rule in current_level_rules:
                     if rule != "????" and rule not in self.accumulated_rules:
                         self.accumulated_rules.append(rule)
                         print(f"Accumulated rule: {rule}")
                 
-                print(f"Total accumulated rules: {len(self.accumulated_rules)}")
-                for i, rule in enumerate(self.accumulated_rules, 1):
-                    print(f"  {i}. {rule}")
+                # Extract current level number from level name
+                current_level = self.level_manager.current_level_name
+                level_num = ''.join(filter(str.isdigit, current_level))
+                next_num = str(int(level_num) + 1) if level_num else ""
+                
+                # Show popup notification for level transition
+                self.ui_manager.show_popup(f"Your password was accepted! Commencing Level {next_num}...", 5000)
                 
                 self.is_transitioning = True
                 
                 if next_level:
                     self.transition_to_level(next_level)
-            else:
-                self.ui_manager.show_message("Door opened successfully!", 3000)
+
+                self.ui_manager.password_ui.hide()
         else:
-            message = result.get("message", "Password incorrect.")
-            self.ui_manager.show_message(message, 3000)
+            # Show error as popup instead of message
+            message = result.get("message", "Your password is invalid.")
+            self.ui_manager.show_popup(message, 2000)
     
     def _draw_existing_interactables(self):
         """Draw outlines around existing interactable tiles (debug only)"""

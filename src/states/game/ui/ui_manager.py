@@ -63,6 +63,8 @@ class UIManager:
             self.password_ui.update(delta_time)
             if hasattr(self.rules_ui, 'update'):
                 self.rules_ui.update(delta_time)
+            if hasattr(self.password_ui, 'rules_text') and self.password_ui.rules_text is not None:
+                self.password_ui.rules_text.update(delta_time)
         except Exception as e:
             print(f"Error updating UI: {e}")
             
@@ -121,13 +123,23 @@ class UIManager:
     def handle_event(self, event: pygame.event.Event) -> bool:
         """Handle UI-related events"""
         try:
-            # If dialogue box is active, only handle its events
+            # Always allow fullscreen toggle
+            if event.type == pygame.KEYDOWN:
+                if (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or \
+                event.key == pygame.K_F11:
+                    return False  # Let the main game handle fullscreen toggle
+            
+            # If dialogue box is active, only handle its events and fullscreen
             if self.dialogue_box.is_active:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
-                    if self.dialogue_box.typing_complete:
+                    if not self.dialogue_box.typing_complete:
+                        self.dialogue_box.complete_typing()
+                        return True
+                    else:
                         self.dialogue_box.hide()
-                return True  # Block all other events
-                
+                        return True 
+                return True
+            
             # Handle other UI events as normal
             if self.password_ui.handle_event(event):
                 return True
@@ -143,7 +155,7 @@ class UIManager:
                 return True
                 
             return False
-            
+                
         except Exception as e:
             print(f"Error handling UI event: {e}")
             return False

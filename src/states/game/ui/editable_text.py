@@ -36,40 +36,65 @@ class EditableText:
         self.undo_stack = [(initial_text, len(initial_text))]  # Stack of (text, cursor_pos) tuples
         self.redo_stack = []  # Stack for redo operations
         self.max_undo_states = 50  # Limit undo history to prevent memory issues
+
+    def update(self, delta_time: float):
+        """Update editable text state"""
+        if not self.focused:
+            return
+
+        # Update cursor blink timing
+        current_time = pygame.time.get_ticks()
+        self.cursor_visible = (current_time % 1000 < 500)
         
     def _update_wrapped_lines(self):
         """Update wrapped lines and adjust height"""
-        # Calculate max width for wrapping, accounting for scrollbar space
-        scrollbar_space = 10 if len(self.text) > 100 else 0  # Estimate if scrollbar will be needed
-        effective_max_width = self.base_rect.width - (self.padding * 2) - scrollbar_space
-        
+        # Calculate max width for wrapping
+        scrollbar_width = 12
+        total_padding = self.padding * 2
+        effective_width = self.rect.width - total_padding - scrollbar_width
+
+        # Wrap text
         if not self.text:
             self.wrapped_lines = [""]
         else:
-            self.wrapped_lines = wrap_text(self.text, self.font, effective_max_width)
-        
+            # Split text into words and wrap
+            words = self.text.split()
+            current_line = []
+            current_width = 0
+            self.wrapped_lines = []
+
+            for word in words:
+                word_surface = self.font.render(word + " ", True, (0, 0, 0))
+                word_width = word_surface.get_width()
+
+                if current_width + word_width > effective_width:
+                    # Start new line
+                    if current_line:
+                        self.wrapped_lines.append(" ".join(current_line))
+                    current_line = [word]
+                    current_width = word_width
+                else:
+                    current_line.append(word)
+                    current_width += word_width
+
+            if current_line:
+                self.wrapped_lines.append(" ".join(current_line))
+
+            if not self.wrapped_lines:
+                self.wrapped_lines = [""]
+
         # Calculate required height
-        required_height = len(self.wrapped_lines) * self.line_height + (self.padding * 2)
+        line_count = len(self.wrapped_lines)
+        min_lines = 1
+        max_lines = 5  # Maximum visible lines
+        visible_lines = max(min_lines, min(max_lines, line_count))
         
-        # Adjust height (between min and max)
-        new_height = max(self.min_height, min(self.max_height, required_height))
-        
-        # Update rect height
-        self.rect.height = new_height
-        
-        # Recalculate max width more accurately now that we know if scrollbar is needed
-        visible_lines = (self.rect.height - self.padding * 2) // self.line_height
-        scrollbar_needed = len(self.wrapped_lines) > visible_lines
-        
-        if scrollbar_needed:
-            # Recalculate with scrollbar space
-            effective_max_width = self.base_rect.width - (self.padding * 2) - 12  # 6px scrollbar + 6px margin
-            self.wrapped_lines = wrap_text(self.text, self.font, effective_max_width)
-        
-        # Update cursor position in wrapped lines
+        # Calculate new height
+        new_height = (visible_lines * self.line_height) + (self.padding * 2)
+        self.rect.height = max(self.min_height, min(self.max_height, new_height))
+
+        # Update cursor position
         self._update_cursor_position()
-        
-        # Ensure cursor is visible (auto-scroll)
         self._ensure_cursor_visible()
     
     def _update_cursor_position(self):
@@ -191,7 +216,51 @@ class EditableText:
         if not self.focused:
             return False
         
+        if event.type in (pygame.KEYDOWN, pygame.KEYUP):
+            # Handle key repeat for navigation keys
+            keys = pygame.key.get_pressed()
+            
+            # Handle continuous cursor movement
+            if event.type == pygame.KEYDOWN or (event.type == pygame.KEYUP and any([
+                keys[pygame.K_LEFT], keys[pygame.K_RIGHT], 
+                keys[pygame.K_UP], keys[pygame.K_DOWN]])):
+                
+                if keys[pygame.K_LEFT]:
+                    if event.mod & pygame.KMOD_SHIFT:
+                        if self.selection_start is None:
+                            self.selection_start = self.cursor_pos
+                        if self.cursor_pos > 0:
+                            self.cursor_pos -= 1
+                        self.selection_end = self.cursor_pos
+                    else:
+                        if self.cursor_pos > 0:
+                            self.cursor_pos -= 1
+                        self.selection_start = None
+                        self.selection_end = None
+                    self._update_cursor_position()
+                    self._ensure_cursor_visible()
+                    return True
+                    
+                elif keys[pygame.K_RIGHT]:
+                    if event.mod & pygame.KMOD_SHIFT:
+                        if self.selection_start is None:
+                            self.selection_start = self.cursor_pos
+                        if self.cursor_pos < len(self.text):
+                            self.cursor_pos += 1
+                        self.selection_end = self.cursor_pos
+                    else:
+                        if self.cursor_pos < len(self.text):
+                            self.cursor_pos += 1
+                        self.selection_start = None
+                        self.selection_end = None
+                    self._update_cursor_position()
+                    self._ensure_cursor_visible()
+                    return True
+
         if event.type == pygame.KEYDOWN:
+            # Handle key repeat for navigation keys
+            keys = pygame.key.get_pressed()
+            
             # Handle Ctrl combinations
             if event.mod & pygame.KMOD_CTRL:
                 if event.key == pygame.K_z:  # Undo
@@ -244,40 +313,6 @@ class EditableText:
                     self.text = self.text[:self.cursor_pos] + self.text[self.cursor_pos+1:]
                 self._update_wrapped_lines()
                 return True
-            elif event.key == pygame.K_LEFT:
-                if event.mod & pygame.KMOD_SHIFT:
-                    # Shift+Left: extend selection
-                    if self.selection_start is None:
-                        self.selection_start = self.cursor_pos
-                    if self.cursor_pos > 0:
-                        self.cursor_pos -= 1
-                    self.selection_end = self.cursor_pos
-                else:
-                    # Left: move cursor and clear selection
-                    if self.cursor_pos > 0:
-                        self.cursor_pos -= 1
-                    self.selection_start = None
-                    self.selection_end = None
-                self._update_cursor_position()
-                self._ensure_cursor_visible()
-                return True
-            elif event.key == pygame.K_RIGHT:
-                if event.mod & pygame.KMOD_SHIFT:
-                    # Shift+Right: extend selection
-                    if self.selection_start is None:
-                        self.selection_start = self.cursor_pos
-                    if self.cursor_pos < len(self.text):
-                        self.cursor_pos += 1
-                    self.selection_end = self.cursor_pos
-                else:
-                    # Right: move cursor and clear selection
-                    if self.cursor_pos < len(self.text):
-                        self.cursor_pos += 1
-                    self.selection_start = None
-                    self.selection_end = None
-                self._update_cursor_position()
-                self._ensure_cursor_visible()
-                return True
             elif event.key == pygame.K_UP:
                 # Move cursor up one line
                 if self.cursor_line > 0:
@@ -328,11 +363,11 @@ class EditableText:
                 return True
             elif event.unicode and event.unicode.isprintable():
                 self._save_state()  # Save state before typing
-                if self.selection_start is not None and self.selection_end is not None and self.selection_start != self.selection_end:
+                if self.selection_start is not None and self.selection_end is not None:
                     self._delete_selection()
                 self.text = self.text[:self.cursor_pos] + event.unicode + self.text[self.cursor_pos:]
                 self.cursor_pos += 1
-                self._update_wrapped_lines()
+                self._update_wrapped_lines()  # Update wrapping after text changes
                 return True
         
         return False
@@ -427,12 +462,15 @@ class EditableText:
             self.selection_end = None
     
     def render(self, screen):
-        """Render the multi-line text input with scrolling"""
-        # Draw background
+        """Render the editable text with wrapping"""
+        # Draw background and border
         bg_color = self.ui_manager.input_bg_color if self.ui_manager else (60, 60, 70)
-        border_color = self.ui_manager.input_focused_border_color if self.focused and self.ui_manager else (self.ui_manager.input_border_color if self.ui_manager else (100,100,110))
-        text_color = self.ui_manager.text_color if self.ui_manager else (255,255,255)
-        selection_bg_color = self.ui_manager.selection_bg_color if self.ui_manager else (80, 100, 150)
+        border_color = (
+            self.ui_manager.input_focused_border_color if self.focused and self.ui_manager 
+            else self.ui_manager.input_border_color if self.ui_manager 
+            else (100, 100, 110)
+        )
+        text_color = self.ui_manager.text_color if self.ui_manager else (255, 255, 255)
         
         pygame.draw.rect(screen, bg_color, self.rect, border_radius=3)
         pygame.draw.rect(screen, border_color, self.rect, 2, border_radius=3)
@@ -444,59 +482,24 @@ class EditableText:
         
         # Draw text lines
         for line_idx in range(start_line, end_line):
-            if line_idx >= len(self.wrapped_lines):
-                break
-                
             line = self.wrapped_lines[line_idx]
             y_pos = self.rect.y + self.padding + (line_idx - start_line) * self.line_height
             
-            # Calculate line's absolute character range
-            line_start_pos = self._line_col_to_cursor_pos(line_idx, 0)
-            line_end_pos = self._line_col_to_cursor_pos(line_idx, len(line))
-            
-            # Draw selection background for this line
-            if (self.selection_start is not None and self.selection_end is not None and
-                self.selection_start != self.selection_end):
-                
-                sel_start = min(self.selection_start, self.selection_end)
-                sel_end = max(self.selection_start, self.selection_end)
-                
-                # Check if selection overlaps with this line
-                if sel_start < line_end_pos and sel_end > line_start_pos:
-                    # Calculate selection bounds within this line
-                    line_sel_start = max(0, sel_start - line_start_pos)
-                    line_sel_end = min(len(line), sel_end - line_start_pos)
-                    
-                    if line_sel_start < line_sel_end:
-                        # Calculate pixel positions for selection
-                        start_x_offset = self.font.size(line[:line_sel_start])[0] if line_sel_start > 0 else 0
-                        end_x_offset = self.font.size(line[:line_sel_end])[0]
-                        
-                        sel_rect = pygame.Rect(
-                            self.rect.x + self.padding + start_x_offset,
-                            y_pos,
-                            end_x_offset - start_x_offset,
-                            self.line_height
-                        )
-                        pygame.draw.rect(screen, selection_bg_color, sel_rect)
-            
-            # Draw the text line
             if line:
                 text_surface = self.font.render(line, True, text_color)
                 screen.blit(text_surface, (self.rect.x + self.padding, y_pos))
-        
-        # Draw cursor
-        if self.focused and pygame.time.get_ticks() % 1000 < 500:
-            if (start_line <= self.cursor_line < end_line):
-                cursor_line = self.wrapped_lines[self.cursor_line] if self.cursor_line < len(self.wrapped_lines) else ""
-                cursor_x_offset = self.font.size(cursor_line[:self.cursor_col])[0]
-                cursor_x = self.rect.x + self.padding + cursor_x_offset
+
+        # Draw cursor if focused
+        if self.focused and self.cursor_visible:
+            if start_line <= self.cursor_line < end_line:
+                cursor_line = self.wrapped_lines[self.cursor_line]
+                cursor_x = self.rect.x + self.padding + self.font.size(cursor_line[:self.cursor_col])[0]
                 cursor_y = self.rect.y + self.padding + (self.cursor_line - start_line) * self.line_height
                 
-                pygame.draw.line(screen, text_color, 
-                               (cursor_x, cursor_y), 
-                               (cursor_x, cursor_y + self.line_height), 2)
-        
+                pygame.draw.line(screen, text_color,
+                            (cursor_x, cursor_y),
+                            (cursor_x, cursor_y + self.line_height), 2)
+
         # Draw scrollbar if needed
         if len(self.wrapped_lines) > visible_lines:
             self._draw_scrollbar(screen, visible_lines)

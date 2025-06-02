@@ -4,7 +4,14 @@ import pyperclip
 class SelectableText:
     """A text widget that supports selection and clipboard operations with scrolling"""
     
-    def __init__(self, text: str, font: pygame.font.Font, color: tuple, rect: pygame.Rect, selection_bg_color: tuple = (80, 100, 150)):
+    def __init__(
+            self, text: str, 
+            font: pygame.font.Font, 
+            color: tuple, 
+            rect: pygame.Rect, 
+            selection_bg_color: 
+            tuple = (80, 100, 150), 
+            interactive: bool = False):
         self.text = text
         self.font = font
         self.default_color = color
@@ -23,6 +30,18 @@ class SelectableText:
         self.scroll_offset = 0
         self.max_visible_lines = max(1, self.rect.height // self.line_height)
         self.max_scroll = max(0, len(self.lines) - self.max_visible_lines)
+
+        # Add cursor and animation states
+        self.cursor_visible = False
+        self.cursor_blink_time = 0
+        self.cursor_blink_rate = 0.53  # Seconds per blink
+        
+        # Smooth scrolling
+        self.target_scroll_offset = 0
+        self.scroll_speed = 15  # Lines per second
+        self.current_scroll = 0.0  # Float for smooth scrolling
+
+        self.interactive = interactive
         
     def set_line_colors(self, line_colors: list[tuple]):
         """Set colors for individual lines"""
@@ -61,6 +80,8 @@ class SelectableText:
         
     def handle_mouse_down(self, pos):
         """Handle mouse down for starting selection"""
+        if not self.interactive:
+            return False
         if self.rect.collidepoint(pos):
             self.selection_start = self._pos_to_char_index(pos)
             self.selection_end = self.selection_start
@@ -70,6 +91,8 @@ class SelectableText:
     
     def handle_mouse_drag(self, pos):
         """Handle mouse drag for extending selection"""
+        if not self.interactive:
+            return False
         if self.is_selecting:
             self.selection_end = self._pos_to_char_index(pos)
             return True
@@ -130,6 +153,45 @@ class SelectableText:
                 pass
         return False
     
+    def update(self, delta_time: float):
+        """Update selection state and animations"""
+        # Update cursor blink
+        self.cursor_blink_time += delta_time
+        if self.cursor_blink_time >= self.cursor_blink_rate:
+            self.cursor_blink_time = 0
+            self.cursor_visible = not self.cursor_visible
+        
+        # Update smooth scrolling
+        if self.current_scroll != self.target_scroll_offset:
+            # Calculate scroll step
+            step = self.scroll_speed * delta_time
+            diff = self.target_scroll_offset - self.current_scroll
+            
+            # Move towards target
+            if abs(diff) <= step:
+                self.current_scroll = self.target_scroll_offset
+            else:
+                self.current_scroll += step if diff > 0 else -step
+            
+            # Update actual scroll offset
+            self.scroll_offset = int(round(self.current_scroll))
+            self.scroll_offset = max(0, min(self.scroll_offset, self.max_scroll))
+
+    def handle_scroll(self, scroll_direction: int):
+        """Handle scroll wheel input with smooth scrolling"""
+        old_offset = self.target_scroll_offset
+        self.target_scroll_offset = max(0, min(self.max_scroll, 
+                                             self.target_scroll_offset + scroll_direction))
+        return self.target_scroll_offset != old_offset
+
+    def scroll_to_bottom(self):
+        """Scroll to the bottom of the content with animation"""
+        self.target_scroll_offset = self.max_scroll
+
+    def scroll_to_top(self):
+        """Scroll to the top of the content with animation"""
+        self.target_scroll_offset = 0
+
     def _clean_text_for_clipboard(self, text: str) -> str:
         """Clean text for clipboard to avoid LF symbols and improve readability"""
         if not text:
@@ -211,6 +273,32 @@ class SelectableText:
             # Draw the text
             screen.blit(line_surface, (self.rect.x + text_padding_x, self.rect.y + y_offset))
             y_offset += self.line_height
+
+        # Draw cursor if visible and text is selected
+        if self.interactive and self.cursor_visible and self.selection_start is not None:
+            cursor_pos = self.selection_end if self.selection_end is not None else self.selection_start
+            
+            # Calculate cursor position
+            line_idx = 0
+            char_count = 0
+            for i, line in enumerate(self.lines):
+                if char_count + len(line) + 1 > cursor_pos:
+                    line_idx = i
+                    break
+                char_count += len(line) + 1
+            
+            # Only draw if cursor is in visible area
+            if line_idx >= start_line and line_idx < end_line:
+                local_cursor_pos = cursor_pos - char_count
+                cursor_x = self.rect.x + text_padding_x + \
+                        self.font.size(self.lines[line_idx][:local_cursor_pos])[0]
+                cursor_y = self.rect.y + (line_idx - start_line) * self.line_height
+                
+                # Draw cursor line
+                pygame.draw.line(screen, self.default_color,
+                            (cursor_x, cursor_y),
+                            (cursor_x, cursor_y + self.line_height),
+                            2)
         
         # Draw scrollbar if needed
         if self.max_scroll > 0:

@@ -2,20 +2,11 @@ import pygame
 
 def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
     """
-    Wrap text to fit within max_width pixels
-    
-    Args:
-        text: Text to wrap
-        font: Font to use for measuring text width
-        max_width: Maximum width in pixels
-        
-    Returns:
-        List of wrapped lines
+    Wrap text to fit within max_width pixels, handling text without spaces
     """
     if not text.strip():
         return [text]
     
-    # Handle explicit line breaks first
     paragraphs = text.split('\n')
     wrapped_lines = []
     
@@ -24,27 +15,24 @@ def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list[str]:
             wrapped_lines.append('')
             continue
             
-        words = paragraph.split(' ')
-        current_line = ''
+        current_line = []
+        remaining_width = max_width
         
-        for word in words:
-            # Test if adding this word would exceed max width
-            test_line = current_line + (' ' if current_line else '') + word
-            text_width = font.size(test_line)[0]
+        # Process each character individually
+        for char in paragraph:
+            char_width = font.size(char)[0]
             
-            if text_width <= max_width:
-                current_line = test_line
+            if char_width <= remaining_width:
+                current_line.append(char)
+                remaining_width -= char_width
             else:
-                # If current line is not empty, save it and start new line
-                if current_line:
-                    wrapped_lines.append(current_line)
-                    current_line = word
-                else:
-                    # Single word is too long, break it
-                    wrapped_lines.append(word)
+                # Save current line and start a new one
+                wrapped_lines.append(''.join(current_line))
+                current_line = [char]
+                remaining_width = max_width - char_width
         
-        # Add remaining text
+        # Add remaining characters
         if current_line:
-            wrapped_lines.append(current_line)
+            wrapped_lines.append(''.join(current_line))
     
     return wrapped_lines

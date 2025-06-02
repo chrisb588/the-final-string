@@ -25,7 +25,7 @@ class DialogueBox:
         self.is_active = False
         self.char_index = 0
         self.last_char_time = 0
-        self.char_delay = UI_ANIMATION['CHAR_DELAY']
+        self.char_delay = 30
         self.triangle_scale = 1.5
         self.scale_direction = 1
         self.typing_complete = False
@@ -40,17 +40,17 @@ class DialogueBox:
             font_path = os.path.join(main_dir, 'assets', 'fonts', 'UnifontEX.ttf')
             
             if os.path.exists(font_path):
-                self.font = pygame.font.Font(font_path, UI_FONT_SIZES['MEDIUM'])
-                self.small_font = pygame.font.Font(font_path, UI_FONT_SIZES['SMALL'])  # Smaller font for exit text
+                self.font = pygame.font.Font(font_path, 24)
+                self.small_font = pygame.font.Font(font_path, 16)  # Smaller font for exit text
                 print("Successfully loaded custom font for DialogueBox")
             else:
                 print(f"Warning: Font file not found at {font_path}")
-                self.font = pygame.font.Font(None, UI_FONT_SIZES['MEDIUM'])
-                self.small_font = pygame.font.Font(None, UI_FONT_SIZES['SMALL'])
+                self.font = pygame.font.Font(None, 24)
+                self.small_font = pygame.font.Font(None, 16)
         except Exception as e:
             print(f"Warning: Could not initialize DialogueBox font: {e}")
-            self.font = pygame.font.Font(None, UI_FONT_SIZES['MEDIUM'])
-            self.small_font = pygame.font.Font(None, UI_FONT_SIZES['SMALL'])
+            self.font = pygame.font.Font(None, 24)
+            self.small_font = pygame.font.Font(None, 16)
             
     def _init_dimensions(self):
         """Initialize dialog box dimensions"""
@@ -58,11 +58,11 @@ class DialogueBox:
         screen_height = self.screen.get_height()
         
         # Add horizontal padding (10% of screen width on each side)
-        self.horizontal_padding = int(screen_width * UI_DIMENSIONS['DIALOG_HORIZONTAL_PADDING_PERCENT'])
-        self.bottom_padding = UI_DIMENSIONS['DIALOG_BOTTOM_PADDING']
+        self.horizontal_padding = int(screen_width * 0.05)
+        self.bottom_padding = 10
         self.box_height = UI_DIMENSIONS['DIALOG_HEIGHT']
         self.box_y = screen_height - self.box_height - self.bottom_padding
-        self.padding = UI_DIMENSIONS['DIALOG_PADDING']
+        self.padding = 20
         
     def show_message(self, message: str, duration: int = None):
         """Show a message in the dialog box"""
@@ -92,16 +92,16 @@ class DialogueBox:
         
         # Update triangle animation
         if self.typing_complete:
-            self.triangle_scale += UI_ANIMATION['TRIANGLE_SCALE_SPEED'] * self.scale_direction
-            if self.triangle_scale >= UI_ANIMATION['TRIANGLE_SCALE_MAX']:
+            self.triangle_scale += 0.02 * self.scale_direction
+            if self.triangle_scale >= 1.1:
                 self.scale_direction = -1
-            elif self.triangle_scale <= UI_ANIMATION['TRIANGLE_SCALE_MIN']:
+            elif self.triangle_scale <= 0.9:
                 self.scale_direction = 1
         
         # Handle exit key
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_e] and self.typing_complete:
-            self.hide()
+        # keys = pygame.key.get_pressed()
+        # if keys[pygame.K_e] and self.typing_complete:
+        #     self.hide()
             
     def hide(self):
         """Hide the dialog box"""
@@ -127,11 +127,11 @@ class DialogueBox:
         
         # Semi-transparent background (matching RulesCount colors)
         s = pygame.Surface((box_width, self.box_height))
-        s.set_alpha(UI_ALPHA['DIALOG_BG'])
-        s.fill(UI_COLORS['PANEL_BG'])
+        s.set_alpha(245)
+        s.fill((45, 45, 55))
         self.screen.blit(s, (self.horizontal_padding, self.box_y))
         
-        pygame.draw.rect(self.screen, UI_COLORS['PANEL_BORDER'], box_rect, 2, border_radius=5)
+        pygame.draw.rect(self.screen, (80, 80, 90), box_rect, 2, border_radius=5)
         
         # Render message with word wrap
         wrapped_text = self._wrap_text(
@@ -141,14 +141,14 @@ class DialogueBox:
         y_offset = self.box_y + self.padding
         
         for line in wrapped_text:
-            text_surface = self.font.render(line, True, UI_COLORS['TEXT_PRIMARY'])  # Match RulesCount text color
+            text_surface = self.font.render(line, True, (230, 230, 240)) # Match RulesCount text color
             self.screen.blit(text_surface, (self.horizontal_padding + self.padding, y_offset))
             y_offset += self.font.get_linesize()
         
         # Draw exit prompt and triangle when typing is complete
         if self.typing_complete:
             # Draw "Press E to exit" text
-            exit_text = self.small_font.render("Press E to exit", True, UI_COLORS['TEXT_PRIMARY'])
+            exit_text = self.small_font.render("Press E to exit", True, (230, 230, 240))
             exit_text_rect = exit_text.get_rect()
             exit_text_pos = (
                 screen_width - self.horizontal_padding - self.padding - exit_text_rect.width - 20,
@@ -170,8 +170,16 @@ class DialogueBox:
                 (triangle_x, triangle_y + scaled_size/2),  # Bottom point
             ]
             
-            pygame.draw.polygon(self.screen, UI_COLORS['TEXT_PRIMARY'], triangle_points)
+            pygame.draw.polygon(self.screen, (230, 230, 240), triangle_points)
     
+    def complete_typing(self):
+        """Skip typing animation and show complete message"""
+        if not self.typing_complete:
+            self.displayed_message = self.message
+            self.char_index = len(self.message)
+            self.typing_complete = True
+            self.last_char_time = pygame.time.get_ticks()  
+
     def _wrap_text(self, text: str, max_width: int) -> list:
         """Wrap text to fit within specified width"""
         words = text.split(' ')
@@ -180,7 +188,7 @@ class DialogueBox:
         current_width = 0
         
         for word in words:
-            word_surface = self.font.render(word + ' ', True, UI_COLORS['TEXT_PRIMARY'])
+            word_surface = self.font.render(word + ' ', True, (230, 230, 240))
             word_width = word_surface.get_width()
             
             if current_width + word_width > max_width:
@@ -202,8 +210,10 @@ class DialogueBox:
             return False
             
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_e and self.typing_complete:
-                self.hide()
-                return True
+            if event.key == pygame.K_e:
+                if not self.typing_complete:
+                    self.complete_typing()
+                    return True
+                return False
                 
         return False
