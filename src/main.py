@@ -33,7 +33,7 @@ class GameDemo:
         self.windowed_size = (1024, 768)
         
         # Game settings
-        self.fps = 60
+        self.fps = 144
         self.clock = pygame.time.Clock()
 
         # Debug and control flags
