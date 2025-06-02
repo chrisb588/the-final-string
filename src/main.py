@@ -860,7 +860,12 @@ class GameDemo:
                 # Also add to current level rules
                 if rule not in self.current_level_rules:
                     self.current_level_rules.append(rule)
-                self.ui_manager.show_message(f"Rule collected: {rule}", 3000)
+                
+                # Use custom message from NPC if available, otherwise use generic message
+                if message:
+                    self.ui_manager.show_message(message, 3000)
+                else:
+                    self.ui_manager.show_message(f"Rule collected: {rule}", 3000)
             
         elif interaction_type == "note_already_collected":
             message = result.get("message", "Already read this note.")

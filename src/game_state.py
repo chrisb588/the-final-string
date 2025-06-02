@@ -64,6 +64,13 @@ class PasswordRuleManager:
             "Your password must contain one of the names of the people who made this game.",
             "Your password must contain the title of this game in reverse order. (answer: 'gnirtS laniF ehT')",
             "Your password must contain the answer to this question: 'What Hollywood star joined the list of 19 EGOT winners with their delayed win in the Grammys in 1994?'"
+            "Your password must include a legal move in standard chess notation.",
+            "Your password must contain its own length as a number.",
+            "Your password must include the current time.",
+            "Your password must contain the currency symbol used in Japan.",
+            "Your password must include today's day of the week.",
+            "Your password must include the number of the current month.",
+            "Your password must include the name of a planet."
         ]
         
         # Cache for performance optimization
@@ -451,6 +458,75 @@ class PasswordRuleManager:
         elif "hollywood star" in rule_lower and "egot winners" in rule_lower and "grammys in 1994" in rule_lower:
             password_lower = password.lower()
             return "audrey hepburn" in password_lower or "audrey" in password_lower or "hepburn" in password_lower
+
+        # Legal move in standard chess notation
+        elif "legal move in standard chess notation" in rule_lower:
+            # Check for common chess moves in algebraic notation
+            chess_patterns = [
+                r'[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8][+#]?',  # Standard moves (e.g., Nf3, Bxe5, Qd8+)
+                r'O-O(-O)?[+#]?',  # Castling (O-O or O-O-O)
+                r'[a-h]x[a-h][1-8][+#]?',  # Pawn captures (e.g., exd5)
+                r'[a-h][1-8]=[QRBN][+#]?',  # Pawn promotion (e.g., a8=Q)
+                r'[a-h][1-8]',  # Simple pawn moves (e.g., e4, d5)
+            ]
+            
+            for pattern in chess_patterns:
+                if re.search(pattern, password):
+                    return True
+            
+            # Also check for some common specific moves
+            common_moves = [
+                "e4", "d4", "Nf3", "Nc3", "Bb5", "Be2", "Qd1", "Kg1", "Rf1",
+                "a4", "b4", "c4", "f4", "g4", "h4", "a5", "b5", "c5", "d5", 
+                "e5", "f5", "g5", "h5", "Nbd2", "Nge2", "O-O", "O-O-O"
+            ]
+            return any(move in password for move in common_moves)
+        
+        # Length as a number
+        elif "contain its own length as a number" in rule_lower:
+            return len(password) > 0 and str(len(password)) in password
+        
+        # Current time
+        elif "current time" in rule_lower:
+            now = datetime.datetime.now()
+            # Accept various time formats
+            time_formats = [
+                f"{now.hour}:{now.minute:02d}",  # HH:MM (e.g., "14:30")
+                f"{now.hour}:{now.minute}",      # H:M (e.g., "14:3")
+                f"{now.strftime('%I:%M %p')}",   # 12-hour format (e.g., "2:30 PM")
+                f"{now.strftime('%I:%M%p')}",    # 12-hour no space (e.g., "2:30PM")
+                f"{now.hour}{now.minute:02d}",   # HHMM (e.g., "1430")
+                str(now.hour),                   # Just hour (e.g., "14")
+                str(now.minute)                  # Just minute (e.g., "30")
+            ]
+            return any(time_format in password for time_format in time_formats)
+        
+        # Currency symbol used in Japan
+        elif "currency symbol used in japan" in rule_lower:
+            return any(symbol in password for symbol in ["¥", "￥"])
+        
+        # Today's day of the week
+        elif "today's day of the week" in rule_lower:
+            now = datetime.datetime.now()
+            password_lower = password.lower()
+            day_formats = [
+                now.strftime("%A").lower(),      # Full name (e.g., "monday")
+                now.strftime("%a").lower(),      # Abbreviated (e.g., "mon")
+                now.strftime("%A"),              # Full name proper case
+                now.strftime("%a")               # Abbreviated proper case
+            ]
+            return any(day_format in password_lower for day_format in day_formats)
+        
+        # Current month
+        elif "current month" in rule_lower:
+            now = datetime.datetime.now()
+            return str(now.month) in password
+        
+        # Name of a planet
+        elif "name of a planet" in rule_lower:
+            planets = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]
+            password_lower = password.lower()
+            return any(planet.lower() in password_lower for planet in planets)
         
         # Default case - unknown rule
         return True
