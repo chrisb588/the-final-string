@@ -54,7 +54,7 @@ class PasswordRuleManager:
             "The length of your password must be a prime number.",
             "Your password must contain the answer to this question 'Complete the line from one of Sabrina Carpenter's songs: 'You fit every stereotype, \"___\"'.",
             "Your password must contain the answer to this question 'Are nondeterministic finite automata more powerful than their equivalent deterministic finite automata?'",
-            "The sum of the numbers of your password must be a multiple of 14.",
+            "The sum of the digits of your password must be a multiple of 14.",
             "The sum of the roman numerals of your password must be a multiple of 21 (only uppercase letters count for roman numerals).",
             "Your password must include an answer to a riddle. The riddle is: What has keys but can't open locks?",
             "Your password must mention a fruit, but only one that contains potassium and is featured in Mario Kart.",
@@ -410,13 +410,10 @@ class PasswordRuleManager:
         elif "nondeterministic finite automata more powerful" in rule_lower:
             return "no" in password.lower()
         
-        # The sum of the numbers of your password must be a multiple of 14
-        elif "sum of the numbers of your password must be a multiple of 14" in rule_lower:
-            numbers = re.findall(r'\d+', password)
-            if not numbers:
-                return False
-            number_sum = sum(int(num) for num in numbers)
-            return number_sum % 14 == 0
+        # The sum of the digits of your password must be a multiple of 14
+        elif "sum of the digits of your password must be a multiple of 14" in rule_lower:
+            digit_sum = sum(int(char) for char in password if char.isdigit())
+            return digit_sum > 0 and digit_sum % 14 == 0
         
         # The sum of the roman numerals must be a multiple of 21
         elif "sum of the roman numerals" in rule_lower and "multiple of 21" in rule_lower:
