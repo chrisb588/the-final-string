@@ -161,29 +161,44 @@ class Player:
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames[self.current_state][self.facing])
                 self.last_update = current_time
         
-    def move(self, keys: pygame.key.ScancodeWrapper, level_manager) -> None:
+    def move(self, keys: pygame.key.ScancodeWrapper, level_manager, delta_time: float = None) -> None:
         """Handle player movement with collision detection"""
         old_x, old_y = self.x, self.y
+
+        # If no delta time provided, calculate it
+        if delta_time is None:
+            current_time = pygame.time.get_ticks()
+            if hasattr(self, '_last_move_time'):
+                delta_time = (current_time - self._last_move_time) / 1000.0  # Convert to seconds
+            else:
+                delta_time = 1.0 / 60.0  # Default to 60 FPS equivalent
+            self._last_move_time = current_time
 
         # Update animation state first
         self.update_animation_state(keys)
         
         # Check if shift is held for running
         is_running = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
-        current_speed = self.speed * 1.5 if is_running else self.speed
+        
+        # Base speed in pixels per second (was pixels per frame)
+        base_speed = self.speed * 60.0  # Convert to pixels per second (assuming original was for 60 FPS)
+        current_speed = base_speed * 1.5 if is_running else base_speed
+        
+        # Apply delta time to make movement frame-rate independent
+        frame_speed = current_speed * delta_time
         
         # Calculate movement deltas
         dx = 0
         dy = 0
         
         if keys[pygame.K_w] or keys[pygame.K_UP]:
-            dy -= current_speed
+            dy -= frame_speed
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            dy += current_speed
+            dy += frame_speed
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            dx -= current_speed
+            dx -= frame_speed
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            dx += current_speed
+            dx += frame_speed
         
         # Try X movement first
         if dx != 0:

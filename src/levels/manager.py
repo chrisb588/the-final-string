@@ -139,7 +139,7 @@ class Camera:
         self.follow_speed = 0.1  # For smooth camera following
         
         # Zoom functionality
-        self.zoom = 2.0  # Current zoom level (1.0 = normal, 2.0 = 2x zoom, 0.5 = zoomed out)
+        self.zoom = 3.0  # Current zoom level (1.0 = normal, 3.0 = 3x zoom, 0.5 = zoomed out)
         self.min_zoom = 0.25  # Minimum zoom (zoomed out)
         self.max_zoom = 4.0   # Maximum zoom (zoomed in)
         self.zoom_speed = 0.1  # How fast zoom changes

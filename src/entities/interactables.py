@@ -41,21 +41,37 @@ class EmptyInteractable(Interactable):
         
     def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
         """Show 'nothing here' message"""
-        messages = [
-            "There's nothing here.",
-            "This spot seems empty.",
-            "You find nothing of interest.",
-            "Nothing useful here.",
-            "This area appears to be empty."
-        ]
-        
-        # Mark as collected/interacted with
-        self.collected = True
-        
-        return {
-            "type": "empty_interactable",
-            "message": random.choice(messages)
-        }
+        if not self.collected:
+            # First interaction
+            first_messages = [
+                "There's nothing here.",
+                "This spot seems empty.",
+                "You find nothing of interest.",
+                "Nothing useful here.",
+                "This area appears to be empty."
+            ]
+            
+            # Mark as collected/interacted with
+            self.collected = True
+            
+            return {
+                "type": "empty_interactable",
+                "message": random.choice(first_messages)
+            }
+        else:
+            # Subsequent interactions
+            repeat_messages = [
+                "You already searched here - still nothing.",
+                "Still empty, just like before.",
+                "Nothing has changed since your last visit.",
+                "As expected, still nothing here.",
+                "You double-check, but it's still empty."
+            ]
+            
+            return {
+                "type": "empty_interactable",
+                "message": random.choice(repeat_messages)
+            }
 
 class MultiTileInteractable(Interactable):
     """An interactable that spans multiple tiles"""
@@ -262,21 +278,37 @@ class MultiTileEmptyInteractable(MultiTileInteractable):
         
     def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
         """Show 'nothing here' message"""
-        messages = [
-            "There's nothing here.",
-            "This area seems empty.",
-            "You search the area but find nothing.",
-            "Nothing useful in this spot.",
-            "This place appears to be empty."
-        ]
-        
-        # Mark as collected/interacted with
-        self.collected = True
-        
-        return {
-            "type": "empty_interactable",
-            "message": random.choice(messages)
-        }
+        if not self.collected:
+            # First interaction
+            first_messages = [
+                "There's nothing here.",
+                "This area seems empty.",
+                "You search the area but find nothing.",
+                "Nothing useful in this spot.",
+                "This place appears to be empty."
+            ]
+            
+            # Mark as collected/interacted with
+            self.collected = True
+            
+            return {
+                "type": "empty_interactable",
+                "message": random.choice(first_messages)
+            }
+        else:
+            # Subsequent interactions
+            repeat_messages = [
+                "You already searched this area - still nothing.",
+                "The area remains as empty as before.",
+                "You scan the area again, but find nothing new.",
+                "Still nothing in this area.",
+                "As before, this place has nothing to offer."
+            ]
+            
+            return {
+                "type": "empty_interactable",
+                "message": random.choice(repeat_messages)
+            }
 
 class NPC(Interactable):
     """An NPC that can optionally contain a password rule"""

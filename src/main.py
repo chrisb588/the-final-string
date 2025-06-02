@@ -7,7 +7,6 @@ from levels.manager import LayeredLevelManager
 from game_state import game_state
 from entities.interactables import interactable_manager
 from states.game.ui.ui_manager import UIManager
-from interactable_config import setup_level_interactables
 from entities.player import Player
 from ui.crt_filter import CRTFilter
 
@@ -101,8 +100,7 @@ class GameDemo:
         self.used_rules = set()  # Track rules that have been used in any level
         self.current_level_rules = []  # Rules found in the current level only (resets each level)
         
-        # Setup programmatic interactables from configuration
-        setup_level_interactables()
+        # Removed setup_level_interactables() call since programmable setups are not being used
 
     def toggle_fullscreen(self):
         """Toggle between fullscreen and windowed mode"""
@@ -146,9 +144,18 @@ class GameDemo:
                     self.toggle_fullscreen()
                     continue
                 
-                # Handle pause toggle before UI events (so it always works)
-                elif event.key == pygame.K_SPACE or event.key == pygame.K_ESCAPE:
-                    self.paused = not self.paused
+                # Handle pause toggle, but check password UI first
+                elif event.key == pygame.K_ESCAPE:
+                    # If password UI is visible, close it instead of pausing
+                    if self.ui_manager.password_ui.visible:
+                        self.ui_manager.password_ui.hide()
+                    else:
+                        self.paused = not self.paused
+                    continue
+                elif event.key == pygame.K_SPACE:
+                    # Space only pauses if password UI is not visible
+                    if not self.ui_manager.password_ui.visible:
+                        self.paused = not self.paused
                     continue
             
             # Let password UI handle events first
@@ -275,8 +282,9 @@ class GameDemo:
                 
                 # Interaction
                 elif event.key == pygame.K_e:
-                    # Interact with objects
-                    self.interact_with_objects()
+                    # Interact with objects (only if not paused)
+                    if not self.paused:
+                        self.interact_with_objects()
                 
                 elif event.key == pygame.K_c:
                     # Clear rules for testing
@@ -370,6 +378,10 @@ class GameDemo:
     
     def _handle_mouse_click(self, pos):
         """Handle mouse click events"""
+        # Don't handle mouse clicks when paused
+        if self.paused:
+            return
+            
         # Safety check - make sure we have valid coordinates
         if not hasattr(self, 'mouse_tile_x') or not hasattr(self, 'mouse_tile_y'):
             self._update_mouse_tile_coords()

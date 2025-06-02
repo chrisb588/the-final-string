@@ -42,6 +42,9 @@ class EditableText:
         self.key_repeat_delay = 500  # Initial delay before repeat starts (ms)
         self.key_repeat_rate = 50   # Time between repeats once started (ms)
         self.repeated_keys_this_frame = set()  # Track which keys were repeated this frame
+        
+        # Initialize cursor visibility state
+        self.cursor_visible = True
 
     def update(self, delta_time: float):
         """Update editable text state"""

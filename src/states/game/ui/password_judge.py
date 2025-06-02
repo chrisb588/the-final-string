@@ -343,17 +343,17 @@ class PasswordUI:
             self.rules_text.scroll_to_line(target_line)
 
     def update(self, delta_time: float):
-        """Update password UI state"""
-        if not self.visible:
-            return
+        """Update UI elements"""
+        try:
+            if self.visible and self.rules_text:
+                self.rules_text.update(delta_time)
             
-        # Update text input cursor blink
-        if self.password_input:
-            self.password_input.update(delta_time)
-        
-        # Update rules text scroll if needed
-        if self.rules_text:
-            self.rules_text.update(delta_time)
+            # Update password input if it exists
+            if self.visible and self.password_input:
+                self.password_input.update(delta_time)
+                
+        except Exception as e:
+            print(f"Error updating PasswordUI: {e}")
 
     def _init_dimensions(self):
         """Initialize/update UI dimensions based on screen size"""
