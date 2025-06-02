@@ -80,13 +80,20 @@ class MenuOptionsState(BaseMenuState):
     def _handle_selection(self):
         selection = MENU_ITEMS[self.selected_item]
         if selection == "Play":
-            return STATE_PRELUDE
+            # Clear terminal and show transition message
+            self.terminal.clear()
+            self.terminal.add_line("Entering The Final String", color={
+                "The Final String": TERMINAL_YELLOW
+            }, animate_dots=True)
+            self.transition_start = pygame.time.get_ticks()
+            self.transitioning = True
+            return None  # Don't transition immediately
         elif selection == "How To Play":
-            return STATE_HOW_TO_PLAY
+            return STATE_MENU_HOW_TO_PLAY
         elif selection == "Settings":
-            return STATE_SETTINGS
+            return STATE_MENU_SETTINGS
         elif selection == "Credits":
-            return STATE_CREDITS
+            return STATE_MENU_CREDITS
         elif selection == "Exit":
             pygame.quit()
             exit()
