@@ -40,9 +40,12 @@ class PauseButton:
         """Check if game is paused"""
         return self.paused
         
-    def draw(self):
+    def draw(self, paused: bool = None):
         """Draw pause indicator when game is paused"""
-        if not self.paused:
+        # Use passed parameter if provided, otherwise use internal state
+        is_paused = paused if paused is not None else self.paused
+        
+        if not is_paused:
             return
             
         # Draw semi-transparent overlay

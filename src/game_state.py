@@ -38,7 +38,7 @@ class PasswordRuleManager:
             "Your password must contain the correct answer to this question: 'Fill in the blanks: CMSC 141 is the ___ course ever! 'best' or 'worst''",
             "Your password must contain the current level you are on in text form.",
             "Your password must contain the sum of the numbers of the current hour and day today mod 7.",
-            "The digits of your password must sum up to a multiple of 141.",
+            "Your password must contain the number 7.",
             "Your password must contain one Japanese hiragana character.",
             "Your password must contain the 46th-50th decimal digits of pi.",
             "Your password must contain the first two words of Franz Kafka's novella 'The Metamorphosis'.",
@@ -63,7 +63,7 @@ class PasswordRuleManager:
             "Your password must contain what is being asked from this: 'Caesar shifted his message to you: WXMXKFBGBLMBVYBGBMXTNMHFTMHG. He told you to go to the 45th street and deliver this message to Mr. Decriptor. Mr. Decriptor said something to you. What did he say to you?'",
             "Your password must contain one of the names of the people who made this game.",
             "Your password must contain the title of this game in reverse order. (answer: 'gnirtS laniF ehT')",
-            "Your password must contain the answer to this question: 'What Hollywood star joined the list of 19 EGOT winners with their delayed win in the Grammys in 1994?'"
+            "Your password must contain the answer to this question: 'What Hollywood star joined the list of 19 EGOT winners with their delayed win in the Grammys in 1994?'",
             "Your password must include a legal move in standard chess notation.",
             "Your password must contain its own length as a number.",
             "Your password must include the current time.",
@@ -319,10 +319,9 @@ class PasswordRuleManager:
             sum_value = (now.hour + now.day) % 7
             return str(sum_value) in password
         
-        # The digits of your password must sum up to a multiple of 141
-        elif "digits of your password must sum up to a multiple of 141" in rule_lower:
-            digit_sum = sum(int(char) for char in password if char.isdigit())
-            return digit_sum > 0 and digit_sum % 141 == 0
+        # Your password must contain the number 7
+        elif "contain the number 7" in rule_lower:
+            return "7" in password
         
         # Your password must contain one Japanese hiragana character
         elif "contain one japanese hiragana character" in rule_lower:

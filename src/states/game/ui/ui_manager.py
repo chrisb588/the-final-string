@@ -1,4 +1,3 @@
-
 import pygame
 import os
 from .password_judge import PasswordUI
@@ -96,7 +95,7 @@ class UIManager:
             
             # Render pause button if game is paused
             if game_data.get('paused', False):
-                self.pause_button.draw()
+                self.pause_button.draw(paused=True)
                 
             # Render debug info if enabled
             if self.show_coordinates:
@@ -149,11 +148,6 @@ class UIManager:
                 if self.rules_ui.handle_event(event):
                     return True
                     
-            # Handle pause button events
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                self.pause_button.toggle()
-                return True
-                
             return False
                 
         except Exception as e:

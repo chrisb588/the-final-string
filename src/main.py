@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+import random
 from typing import Dict, Any, Set, Tuple, List
 from levels.manager import LayeredLevelManager
 from game_state import game_state
@@ -30,7 +31,7 @@ class GameDemo:
         self.is_fullscreen = True
         pygame.display.set_caption("Layered Tileset Demo")
 
-        self.windowed_size = (1024, 576)
+        self.windowed_size = (1024, 768)
         
         # Game settings
         self.fps = 60
@@ -144,6 +145,11 @@ class GameDemo:
                 event.key == pygame.K_F11:
                     self.toggle_fullscreen()
                     continue
+                
+                # Handle pause toggle before UI events (so it always works)
+                elif event.key == pygame.K_SPACE or event.key == pygame.K_ESCAPE:
+                    self.paused = not self.paused
+                    continue
             
             # Let password UI handle events first
             if self.ui_manager.handle_event(event):
@@ -224,9 +230,6 @@ class GameDemo:
                 
                 elif event.key == pygame.K_F5:
                     self.ui_manager.hud.show_speed_debug = not self.ui_manager.hud.show_speed_debug
-                
-                elif event.key == pygame.K_SPACE:
-                    self.paused = not self.paused
                 
                 # Speed controls (when speed debug is on)
                 elif event.key == pygame.K_LEFTBRACKET and self.show_speed_debug:
@@ -320,7 +323,10 @@ class GameDemo:
         # Update screen dimensions
         self.screen_width = width
         self.screen_height = height
-        self.windowed_size = (width, height)
+        
+        # Only update windowed_size if we're actually in windowed mode
+        if not self.is_fullscreen:
+            self.windowed_size = (width, height)
         
         # Update screen surface
         if not self.is_fullscreen:
@@ -597,9 +603,22 @@ class GameDemo:
         # Render player
         self.player.render(self.screen, self.level_manager.camera)
 
-        # Render UI
-        self.ui_manager.render(game_data)
+        # Draw pause effect before UI so PAUSED text appears on top
+        if self.paused:
+            # Dimming overlay
+            dim_surface = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+            dim_surface.fill((0, 0, 0, 150))  # Semi-transparent black
+            self.screen.blit(dim_surface, (0, 0))
 
+            # Static effect
+            for _ in range(2000): # Draw 2000 static particles
+                x = random.randint(0, self.screen_width)
+                y = random.randint(0, self.screen_height)
+                color = random.choice([(200, 200, 200), (150, 150, 150), (100,100,100)]) # Shades of gray
+                self.screen.set_at((x,y), color)
+
+        # Render UI (including PAUSED text)
+        self.ui_manager.render(game_data)
 
         # Update display
         pygame.display.flip()
