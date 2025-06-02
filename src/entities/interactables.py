@@ -114,10 +114,18 @@ class MultiTileNote(MultiTileInteractable):
             if not game_state.has_note(note_id):
                 game_state.add_rule(self.rule, note_id)
                 self.collected = True
+                
+                # Get custom message for this NPC with rule
+                if self.rule:
+                    custom_message = f"You found a rule: {self.rule} (covers {len(self.tiles)} tiles)"
+                else:
+                    # Fallback to generic message if NPC not found
+                    custom_message = f"You found a note (covers {len(self.tiles)} tiles)"
+                
                 return {
                     "type": "note_collected", 
-                    "rule": self.rule,
-                    "message": f"You found a rule: {self.rule} (covers {len(self.tiles)} tiles)"
+                    "rule": self.rule,  # Send original rule to game state
+                    "message": custom_message  # Custom dialogue for display only
                 }
         
         return {
@@ -205,8 +213,10 @@ class Door(Interactable):
         """Try to open the door with a password"""
         validation_results = game_state.validate_password(password)
         is_valid = game_state.is_password_valid(password)
+        collected_count = game_state.get_rules_count()
         
-        if is_valid:
+        # Check both: password satisfies all collected rules AND enough rules have been collected
+        if is_valid and collected_count >= self.required_rules:
             self.is_open = True
             # If this door has a next_level, trigger level transition
             if self.next_level:
@@ -225,9 +235,17 @@ class Door(Interactable):
                     "validation_results": validation_results
                 }
         else:
+            # Provide specific error message
+            if not is_valid:
+                message = "Password doesn't meet all the requirements."
+            elif collected_count < self.required_rules:
+                message = f"You need {self.required_rules} rules, but only have {collected_count}. Find more rules first!"
+            else:
+                message = "Password doesn't meet all the requirements."
+                
             return {
                 "type": "door_failed",
-                "message": "Password doesn't meet all the requirements.",
+                "message": message,
                 "success": False,
                 "validation_results": validation_results
             }
@@ -256,6 +274,186 @@ class MultiTileEmptyInteractable(MultiTileInteractable):
             "type": "empty_interactable",
             "message": random.choice(messages)
         }
+
+class NPC(Interactable):
+    """An NPC that can optionally contain a password rule"""
+    
+    # List of possible NPC names
+    NPC_NAMES = [
+        "Resting Goblin", "Evil Chest", "Mushroom Guy", "Skelly Henchman", 
+        "Skelly Captain", "Guardian of the Agaricales", "Mr. Froggy", 
+        "Goblin Miner", "Alagad ni Colonel Sanders", "Moo-chan"
+    ]
+    
+    # Custom messages for each NPC
+    NPC_MESSAGES = {
+        "Resting Goblin": {
+            "with_rule": "I heard from the other clan that: {}.",
+            "no_rule": "Dude, I'm hungry. When will this soup cook?"
+        },
+        "Evil Chest": {
+            "with_rule": "Bwahaha! The dungeoneer doesn't know that {}.",
+            "no_rule": "Get the eff out! Or else I'll eat you! 😈"
+        },
+        "Mushroom Guy": {
+            "with_rule": "Here is the secret passcode little one: {}",
+            "no_rule": "I have nothing to say to you little one."
+        },
+        "Skelly Henchman": {
+            "with_rule": "Here is one of the hints to the exit: {}. Now go away!",
+            "no_rule": "Hey, get out of our base!"
+        },
+        "Skelly Captain": {
+            "with_rule": "Fine, I will be generous to you. From the headmaster's words: {}.",
+            "no_rule": "I have triumphed over a hundred armies in my previous life. Begone from my throne or taste my stifled wrath!"
+        },
+        "Guardian of the Agaricales": {
+            "with_rule": "No one, not you, shall enter the realm of my dwelling. But allow me to convey you one thing: {}",
+            "no_rule": "No one, not you, shall enter the realm of my dwelling."
+        },
+        "Mr. Froggy": {
+            "with_rule": "Buwakak! The rule is {}.",
+            "no_rule": "Buwakak!"
+        },
+        "Goblin Miner": {
+            "with_rule": "Oh look! This ore has an engraving: {}",
+            "no_rule": "Man, I haven't found any high-value ores today."
+        },
+        "Alagad ni Colonel Sanders": {
+            "with_rule": "Tiktilaok! The mystery spice to season KFC's chicken is: {}",
+            "no_rule": "Tiktilaok! Mr. Sanders won't allow me to share with you the mystery spice to season KFC's chicken."
+        },
+        "Moo-chan": {
+            "with_rule": "Konnichiwa! The rule is {} imnida.😸✨",
+            "no_rule": "Konnichiwa! I don't have the rules. Gomen! 🙏💔"
+        }
+    }
+    
+    def __init__(self, x: int, y: int, tile_id: str, npc_name: str = None, rule: str = None):
+        super().__init__(x, y, tile_id)
+        self.npc_name = npc_name or random.choice(self.NPC_NAMES)
+        self.rule = rule
+        self.collected = False
+        
+    def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
+        """Interact with the NPC"""
+        if self.rule and not self.collected:
+            # NPC has a rule to give
+            note_id = f"npc_{self.x}_{self.y}"
+            if not game_state.has_note(note_id):
+                game_state.add_rule(self.rule, note_id)
+                self.collected = True
+                
+                # Get custom message for this NPC with rule
+                if self.npc_name in self.NPC_MESSAGES:
+                    message_template = self.NPC_MESSAGES[self.npc_name]["with_rule"]
+                    custom_message = f"{self.npc_name}: {message_template.format(self.rule)}"
+                else:
+                    # Fallback to generic message if NPC not found
+                    custom_message = f"{self.npc_name}: Let me tell you a secret: {self.rule}"
+                
+                return {
+                    "type": "note_collected", 
+                    "rule": self.rule,  # Send original rule to game state
+                    "message": custom_message  # Custom dialogue for display only
+                }
+        elif self.rule and self.collected:
+            # NPC already gave their rule
+            return {
+                "type": "note_already_collected",
+                "message": f"{self.npc_name}: I already told you my secret!"
+            }
+        else:
+            # NPC has no rule - use custom casual conversation
+            # Mark as collected/interacted with even for casual conversation
+            self.collected = True
+            
+            if self.npc_name in self.NPC_MESSAGES:
+                casual_message = self.NPC_MESSAGES[self.npc_name]["no_rule"]
+                message = f"{self.npc_name}: {casual_message}"
+            else:
+                # Fallback to generic messages if NPC not found
+                casual_messages = [
+                    "I'm just minding my own business. Go away!",
+                    "Nothing interesting to say here.",
+                    "I don't have anything for you.",
+                    "Move along, traveler.",
+                    "I'm busy doing... important things.",
+                    "Not in the mood to chat right now.",
+                    "Perhaps someone else can help you.",
+                    "I'm just here for decoration, apparently."
+                ]
+                message = f"{self.npc_name}: {random.choice(casual_messages)}"
+            
+            return {
+                "type": "empty_interactable",
+                "message": message
+            }
+
+class MultiTileNPC(MultiTileInteractable):
+    """An NPC that spans multiple tiles"""
+    
+    def __init__(self, tiles: Set[Tuple[int, int]], tile_id: str, npc_name: str = None, rule: str = None):
+        super().__init__(tiles, tile_id, "npc")
+        self.npc_name = npc_name or random.choice(NPC.NPC_NAMES)
+        self.rule = rule
+        self.collected = False
+        
+    def interact(self, player_x: int, player_y: int) -> Dict[str, Any]:
+        """Interact with the multi-tile NPC"""
+        if self.rule and not self.collected:
+            # NPC has a rule to give
+            tile_coords = sorted(list(self.tiles))
+            note_id = f"multi_npc_{'_'.join(f'{x}_{y}' for x, y in tile_coords)}"
+            
+            if not game_state.has_note(note_id):
+                game_state.add_rule(self.rule, note_id)
+                self.collected = True
+                
+                # Get custom message for this NPC with rule
+                if self.npc_name in NPC.NPC_MESSAGES:
+                    message_template = NPC.NPC_MESSAGES[self.npc_name]["with_rule"]
+                    custom_message = f"{self.npc_name}: {message_template.format(self.rule)} (I'm quite large, covering {len(self.tiles)} tiles!)"
+                else:
+                    # Fallback to generic message if NPC not found
+                    custom_message = f"{self.npc_name}: Let me tell you a secret: {self.rule} (I'm quite large, covering {len(self.tiles)} tiles!)"
+                
+                return {
+                    "type": "note_collected", 
+                    "rule": self.rule,  # Send original rule to game state
+                    "message": custom_message  # Custom dialogue for display only
+                }
+        elif self.rule and self.collected:
+            # NPC already gave their rule
+            return {
+                "type": "note_already_collected",
+                "message": f"{self.npc_name}: I already told you my secret!"
+            }
+        else:
+            # NPC has no rule - use custom casual conversation
+            # Mark as collected/interacted with even for casual conversation
+            self.collected = True
+            
+            if self.npc_name in NPC.NPC_MESSAGES:
+                casual_message = NPC.NPC_MESSAGES[self.npc_name]["no_rule"]
+                message = f"{self.npc_name}: {casual_message} (I'm quite large, covering {len(self.tiles)} tiles!)"
+            else:
+                # Fallback to generic messages if NPC not found
+                casual_messages = [
+                    "I'm just a big friendly creature. Nothing more to see here!",
+                    "Being this large has its disadvantages, but no secrets to share.",
+                    "I take up a lot of space but don't have much to say.",
+                    "Don't mind me, I'm just stretching across these tiles.",
+                    "Large and in charge, but no helpful information today.",
+                    "My size might be impressive, but I'm not very useful right now.",
+                    "I cover multiple areas but sadly have nothing interesting to offer."
+                ]
+                message = f"{self.npc_name}: {random.choice(casual_messages)}"
+            
+            return {
+                "type": "empty_interactable",
+                "message": message
+            }
 
 class InteractableManager:
     """Manages all interactable objects in a level"""
@@ -525,6 +723,152 @@ class InteractableManager:
             print(f"Error saving door to level file: {e}")
             return False
     
+    def save_npc_to_level_file(self, x: int, y: int, npc_name: str = None, rule: str = None, tile_id: str = "25") -> bool:
+        """Save a single-tile NPC directly to the level JSON file (without rules - rules get randomized at runtime)"""
+        if not self.current_level_path:
+            print("No current level path set!")
+            return False
+        
+        try:
+            # Load the current level file
+            with open(self.current_level_path, 'r') as f:
+                level_data = json.load(f)
+            
+            # Find or create the interactables layer
+            interactables_layer = self._get_or_create_interactables_layer(level_data)
+            
+            # Check if an NPC already exists at this position
+            for tile in interactables_layer["tiles"]:
+                if tile["x"] == x and tile["y"] == y:
+                    print(f"Interactable already exists at ({x}, {y})")
+                    return False
+            
+            # Create new NPC entry (NO RULE - will be randomized at runtime)
+            new_npc = {
+                "x": x,
+                "y": y,
+                "type": "npc",
+                "id": tile_id
+            }
+            
+            # Add NPC name if provided (rule parameter ignored for randomization)
+            if npc_name:
+                new_npc["npc_name"] = npc_name
+            
+            interactables_layer["tiles"].append(new_npc)
+            
+            # Save the modified level file
+            with open(self.current_level_path, 'w') as f:
+                json.dump(level_data, f, indent=2)
+            
+            print(f"Successfully saved NPC to {self.current_level_path} at ({x}, {y})")
+            if npc_name:
+                print(f"  NPC Name: {npc_name}")
+            print(f"  Rule: Will be randomized at runtime")
+            return True
+            
+        except Exception as e:
+            print(f"Error saving NPC to level file: {e}")
+            return False
+    
+    def save_multi_tile_npc_to_level_file(self, coordinates: List[Tuple[int, int]], npc_name: str = None, rule: str = None, tile_id: str = "25") -> bool:
+        """Save a multi-tile NPC directly to the level JSON file (without rules - rules get randomized at runtime)"""
+        if not self.current_level_path:
+            print("No current level path set!")
+            return False
+        
+        if not coordinates:
+            print("No coordinates provided for multi-tile NPC!")
+            return False
+        
+        try:
+            # Load the current level file
+            with open(self.current_level_path, 'r') as f:
+                level_data = json.load(f)
+            
+            # Find or create the interactables layer
+            interactables_layer = self._get_or_create_interactables_layer(level_data)
+            
+            # Check if any of the coordinates already have interactables
+            existing_coords = set()
+            for tile in interactables_layer["tiles"]:
+                existing_coords.add((tile["x"], tile["y"]))
+            
+            for coord in coordinates:
+                if coord in existing_coords:
+                    print(f"Interactable already exists at {coord}")
+                    return False
+            
+            # Create new multi-tile NPC entry (NO RULE - will be randomized at runtime)
+            first_coord = coordinates[0]
+            new_multi_npc = {
+                "x": first_coord[0],
+                "y": first_coord[1],
+                "type": "multi_npc",
+                "coordinates": coordinates,
+                "id": tile_id
+            }
+            
+            # Add NPC name if provided (rule parameter ignored for randomization)
+            if npc_name:
+                new_multi_npc["npc_name"] = npc_name
+            
+            interactables_layer["tiles"].append(new_multi_npc)
+            
+            # Save the modified level file
+            with open(self.current_level_path, 'w') as f:
+                json.dump(level_data, f, indent=2)
+            
+            print(f"Successfully saved multi-tile NPC to {self.current_level_path}")
+            print(f"  Coordinates: {coordinates}")
+            if npc_name:
+                print(f"  NPC Name: {npc_name}")
+            print(f"  Rule: Will be randomized at runtime")
+            return True
+            
+        except Exception as e:
+            print(f"Error saving multi-tile NPC to level file: {e}")
+            return False
+    
+    def _get_or_create_interactables_layer(self, level_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Helper method to get or create the interactables layer, handling duplicates"""
+        interactables_layer = None
+        duplicate_layers = []
+        
+        for i, layer in enumerate(level_data.get("layers", [])):
+            if layer.get("name") == "interactables":
+                if interactables_layer is None:
+                    interactables_layer = layer
+                    print(f"Found primary interactables layer at index {i}")
+                else:
+                    duplicate_layers.append((i, layer))
+                    print(f"Found duplicate interactables layer at index {i}")
+        
+        # If there are duplicate layers, merge them into the first one
+        if duplicate_layers:
+            print(f"Merging {len(duplicate_layers)} duplicate interactables layers into primary layer")
+            for layer_index, duplicate_layer in duplicate_layers:
+                # Add tiles from duplicate layer to primary layer
+                for tile in duplicate_layer.get("tiles", []):
+                    interactables_layer["tiles"].append(tile)
+            
+            # Remove duplicate layers (in reverse order to maintain indices)
+            for layer_index, _ in reversed(duplicate_layers):
+                del level_data["layers"][layer_index]
+                print(f"Removed duplicate interactables layer at index {layer_index}")
+        
+        if not interactables_layer:
+            # Create new interactables layer
+            interactables_layer = {
+                "name": "interactables",
+                "tiles": [],
+                "collider": False
+            }
+            level_data["layers"].append(interactables_layer)
+            print("Created new interactables layer")
+        
+        return interactables_layer
+    
     def _group_adjacent_tiles_static(self, tiles: Set[Tuple[int, int]]) -> List[Set[Tuple[int, int]]]:
         """Static version of tile grouping for saving to JSON"""
         if not tiles:
@@ -618,6 +962,10 @@ class InteractableManager:
         if obj_type == "note":
             rule = tile_data.get("rule", "")
             return Note(x, y, tile_id, rule)
+        elif obj_type == "npc":
+            npc_name = tile_data.get("npc_name", None)
+            # Ignore rule from JSON - NPCs should participate in randomization
+            return NPC(x, y, tile_id, npc_name, None)
         elif obj_type == "empty":
             return EmptyInteractable(x, y, tile_id)
         elif obj_type == "multi_note":
@@ -634,6 +982,23 @@ class InteractableManager:
                         tiles.add(coord)
                 if tiles:
                     return MultiTileNote(tiles, tile_id, rule)
+        elif obj_type == "multi_npc":
+            # Multi-tile NPC
+            coordinates = tile_data.get("coordinates", [])
+            npc_name = tile_data.get("npc_name", None)
+            # Ignore rule from JSON - NPCs should participate in randomization
+            if coordinates:
+                # Convert coordinate format if needed
+                tiles = set()
+                for coord in coordinates:
+                    if isinstance(coord, list) and len(coord) == 2:
+                        tiles.add((coord[0], coord[1]))
+                    elif isinstance(coord, tuple) and len(coord) == 2:
+                        tiles.add(coord)
+                if tiles:
+                    return MultiTileNPC(tiles, tile_id, npc_name, None)
+            # Return None if no valid coordinates found
+            return None
         elif obj_type == "multi_empty":
             # Multi-tile empty interactable
             coordinates = tile_data.get("coordinates", [])
@@ -717,53 +1082,128 @@ class InteractableManager:
     
     def add_single_tile_interactable(self, level_name: str, x: int, y: int, rule: str, tile_id: str = "25"):
         """Add a single tile interactable at specific coordinates"""
-        self.add_interactable_coordinates(level_name, "note", [(x, y)], rule, tile_id)
+        if level_name not in self.programmatic_interactables:
+            self.programmatic_interactables[level_name] = []
+            
+        self.programmatic_interactables[level_name].append({
+            "type": "note",
+            "x": x,
+            "y": y,
+            "rule": rule,
+            "tile_id": tile_id
+        })
     
     def add_multi_tile_interactable_coords(self, level_name: str, coordinates: List[Tuple[int, int]], rule: str, tile_id: str = "25"):
         """Add a multi-tile interactable at specific coordinates"""
-        self.add_interactable_coordinates(level_name, "multi_note", coordinates, rule, tile_id)
+        if level_name not in self.programmatic_interactables:
+            self.programmatic_interactables[level_name] = []
+            
+        self.programmatic_interactables[level_name].append({
+            "type": "multi_note",
+            "coordinates": coordinates,
+            "rule": rule,
+            "tile_id": tile_id
+        })
     
     def add_door_coordinates(self, level_name: str, x: int, y: int, required_rules: int = 4, tile_id: str = "13"):
         """Add a door at specific coordinates"""
         if level_name not in self.programmatic_interactables:
             self.programmatic_interactables[level_name] = []
-        
+            
         self.programmatic_interactables[level_name].append({
             "type": "door",
-            "coordinates": [(x, y)],
+            "x": x,
+            "y": y,
             "required_rules": required_rules,
             "tile_id": tile_id
         })
     
+    def add_single_tile_npc(self, level_name: str, x: int, y: int, npc_name: str = None, rule: str = None, tile_id: str = "25"):
+        """Add a single tile NPC at specific coordinates"""
+        if level_name not in self.programmatic_interactables:
+            self.programmatic_interactables[level_name] = []
+        
+        npc_data = {
+            "type": "npc",
+            "x": x,
+            "y": y,
+            "tile_id": tile_id
+        }
+        
+        if npc_name:
+            npc_data["npc_name"] = npc_name
+        if rule:
+            npc_data["rule"] = rule
+            
+        self.programmatic_interactables[level_name].append(npc_data)
+    
+    def add_multi_tile_npc_coords(self, level_name: str, coordinates: List[Tuple[int, int]], npc_name: str = None, rule: str = None, tile_id: str = "25"):
+        """Add a multi-tile NPC at specific coordinates"""
+        if level_name not in self.programmatic_interactables:
+            self.programmatic_interactables[level_name] = []
+        
+        npc_data = {
+            "type": "multi_npc",
+            "coordinates": coordinates,
+            "tile_id": tile_id
+        }
+        
+        if npc_name:
+            npc_data["npc_name"] = npc_name
+        if rule:
+            npc_data["rule"] = rule
+            
+        self.programmatic_interactables[level_name].append(npc_data)
+
     def _create_programmatic_interactable(self, interactable_def: Dict[str, Any]) -> Optional[Interactable]:
         """Create an interactable from programmatic definition"""
         obj_type = interactable_def.get("type", "")
-        coordinates = interactable_def.get("coordinates", [])
         tile_id = interactable_def.get("tile_id", "25")
         
-        if not coordinates:
-            return None
-        
-        if obj_type == "note" and len(coordinates) == 1:
+        if obj_type == "note":
             # Single tile note
-            x, y = coordinates[0]
-            rule = interactable_def.get("rule", f"Rule at ({x}, {y})")
-            return Note(x, y, tile_id, rule)
+            x = interactable_def.get("x")
+            y = interactable_def.get("y")
+            if x is not None and y is not None:
+                rule = interactable_def.get("rule", f"Rule at ({x}, {y})")
+                return Note(x, y, tile_id, rule)
         
-        elif obj_type == "multi_note" and len(coordinates) > 1:
+        elif obj_type == "npc":
+            # Single tile NPC
+            x = interactable_def.get("x")
+            y = interactable_def.get("y")
+            if x is not None and y is not None:
+                npc_name = interactable_def.get("npc_name", None)
+                rule = interactable_def.get("rule", None)
+                return NPC(x, y, tile_id, npc_name, rule)
+        
+        elif obj_type == "multi_note":
             # Multi-tile note
-            tiles = set(coordinates)
-            rule = interactable_def.get("rule", f"Multi-tile rule covering {len(tiles)} tiles")
-            return MultiTileNote(tiles, tile_id, rule)
+            coordinates = interactable_def.get("coordinates", [])
+            if len(coordinates) > 1:
+                tiles = set(coordinates)
+                rule = interactable_def.get("rule", f"Multi-tile rule covering {len(tiles)} tiles")
+                return MultiTileNote(tiles, tile_id, rule)
         
-        elif obj_type == "door" and len(coordinates) == 1:
+        elif obj_type == "multi_npc":
+            # Multi-tile NPC
+            coordinates = interactable_def.get("coordinates", [])
+            if len(coordinates) > 0:
+                tiles = set(coordinates)
+                npc_name = interactable_def.get("npc_name", None)
+                rule = interactable_def.get("rule", None)
+                return MultiTileNPC(tiles, tile_id, npc_name, rule)
+        
+        elif obj_type == "door":
             # Door
-            x, y = coordinates[0]
-            required_rules = interactable_def.get("required_rules", 4)
-            next_level = interactable_def.get("next_level", None)
-            door = Door(x, y, tile_id, required_rules, next_level)
-            door.set_level_metadata(self.level_metadata)
-            return door
+            x = interactable_def.get("x")
+            y = interactable_def.get("y")
+            if x is not None and y is not None:
+                required_rules = interactable_def.get("required_rules", 4)
+                next_level = interactable_def.get("next_level", None)
+                door = Door(x, y, tile_id, required_rules, next_level)
+                door.set_level_metadata(self.level_metadata)
+                return door
         
         return None
     
@@ -897,48 +1337,83 @@ class InteractableManager:
             return False
 
     def _randomly_assign_rules_for_level(self):
-        """Randomly assign rules to empty interactables in memory only (not saved to JSON)"""
+        """Randomly assign rules to empty interactables and NPCs without rules (in memory only, not saved to JSON)"""
         # Get all the rules that were selected for this level
         level_rules = self.level_metadata.get("rules", [])
         if not level_rules:
             # Fallback to tutorial rules if no level rules available
             level_rules = game_state.rule_manager.get_tutorial_rules()
         
-        # Find all empty interactables in memory
-        empty_interactables = [
-            obj for obj in self.interactables 
-            if isinstance(obj, (EmptyInteractable, MultiTileEmptyInteractable))
-        ]
+        # Count interactables that already have rules (Notes from JSON only)
+        existing_rule_count = 0
+        for obj in self.interactables:
+            if isinstance(obj, (Note, MultiTileNote)) and obj.rule:
+                existing_rule_count += 1
+                print(f"Found existing rule note at ({obj.x}, {obj.y}): {obj.rule}")
         
-        if not empty_interactables:
-            print("No empty interactables found in memory")
+        # Find all candidates for rule assignment (empty interactables + NPCs without rules)
+        rule_candidates = []
+        
+        # Add empty interactables
+        for obj in self.interactables:
+            if isinstance(obj, (EmptyInteractable, MultiTileEmptyInteractable)):
+                rule_candidates.append(obj)
+        
+        # Add NPCs without rules (from JSON or programmatic)
+        for obj in self.interactables:
+            if isinstance(obj, (NPC, MultiTileNPC)) and not obj.rule:
+                rule_candidates.append(obj)
+                print(f"Found NPC candidate for rule assignment: {obj.npc_name} at ({obj.x}, {obj.y})")
+        
+        if not rule_candidates:
+            print("No candidates found for rule assignment (no empty interactables or NPCs without rules)")
+            if existing_rule_count > 0:
+                print(f"Level has {existing_rule_count} existing rule notes from JSON")
             return
         
-        # Assign rules to interactables (up to the number of available empty interactables)
-        num_rules_to_assign = min(len(level_rules), len(empty_interactables))
+        # Calculate how many more rules we need to assign
+        rules_needed = len(level_rules) - existing_rule_count
         
-        # Randomly select which interactables get rules
-        selected_interactables = random.sample(empty_interactables, num_rules_to_assign)
+        if rules_needed <= 0:
+            print(f"All {len(level_rules)} rules already assigned to existing notes from JSON")
+            return
         
-        # Convert selected empty interactables to note interactables with rules
-        for i, (interactable, rule) in enumerate(zip(selected_interactables, level_rules[:num_rules_to_assign])):
-            # Remove the old empty interactable
-            self.interactables.remove(interactable)
-            
-            # Create new note interactable with the rule
-            if isinstance(interactable, MultiTileEmptyInteractable):
-                # Multi-tile note
-                new_interactable = MultiTileNote(interactable.tiles, interactable.tile_id, rule)
-            else:
-                # Single tile note
-                new_interactable = Note(interactable.x, interactable.y, interactable.tile_id, rule)
-            
-            # Add the new note interactable
-            self.interactables.append(new_interactable)
-            
-            print(f"Assigned rule {i+1}/{num_rules_to_assign} to ({interactable.x}, {interactable.y}): {rule}")
+        # Assign remaining rules to candidates
+        num_rules_to_assign = min(rules_needed, len(rule_candidates))
         
-        print(f"Successfully assigned {num_rules_to_assign} rules to {num_rules_to_assign} interactables (in memory only)")
+        if num_rules_to_assign == 0:
+            print("No additional rules needed")
+            return
+        
+        # Get the rules that haven't been assigned yet
+        remaining_rules = level_rules[existing_rule_count:existing_rule_count + num_rules_to_assign]
+        
+        # Randomly select which candidates get the remaining rules
+        selected_candidates = random.sample(rule_candidates, num_rules_to_assign)
+        
+        # Assign rules to selected candidates
+        for i, (candidate, rule) in enumerate(zip(selected_candidates, remaining_rules)):
+            if isinstance(candidate, (EmptyInteractable, MultiTileEmptyInteractable)):
+                # Convert empty interactable to note
+                self.interactables.remove(candidate)
+                
+                if isinstance(candidate, MultiTileEmptyInteractable):
+                    new_interactable = MultiTileNote(candidate.tiles, candidate.tile_id, rule)
+                else:
+                    new_interactable = Note(candidate.x, candidate.y, candidate.tile_id, rule)
+                
+                self.interactables.append(new_interactable)
+                print(f"Assigned rule {existing_rule_count + i + 1}/{len(level_rules)} to empty interactable at ({candidate.x}, {candidate.y}): {rule}")
+                
+            elif isinstance(candidate, (NPC, MultiTileNPC)):
+                # Assign rule to NPC (NPC object stays the same, just gets a rule)
+                candidate.rule = rule
+                print(f"Assigned rule {existing_rule_count + i + 1}/{len(level_rules)} to NPC {candidate.npc_name} at ({candidate.x}, {candidate.y}): {rule}")
+        
+        total_rules_assigned = existing_rule_count + num_rules_to_assign
+        print(f"Level now has {total_rules_assigned}/{len(level_rules)} rules assigned:")
+        print(f"  - {existing_rule_count} from existing Notes (JSON)")
+        print(f"  - {num_rules_to_assign} assigned to candidates (randomized)")
         
         # Clear game state to remove any old rules before starting fresh
         game_state.clear_rules_for_testing()

@@ -155,6 +155,46 @@ class PasswordRuleManager:
             logger.error(f"Error in decimal/octal/hex validation: {e}")
             return False
     
+    def _parse_roman_numerals(self, text: str) -> int:
+        """
+        Parse Roman numerals from text and return their total value.
+        Handles subtractive notation correctly (IV=4, IX=9, XL=40, XC=90, CD=400, CM=900).
+        """
+        roman_values = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
+        
+        # Find all Roman numeral sequences in the text
+        roman_pattern = r'[IVXLCDM]+'
+        roman_sequences = re.findall(roman_pattern, text)
+        
+        total = 0
+        for sequence in roman_sequences:
+            sequence_value = 0
+            i = 0
+            while i < len(sequence):
+                current_char = sequence[i]
+                current_value = roman_values.get(current_char, 0)
+                
+                # Check if this is a subtractive case
+                if i + 1 < len(sequence):
+                    next_char = sequence[i + 1]
+                    next_value = roman_values.get(next_char, 0)
+                    
+                    # Subtractive notation rules
+                    if (current_char == 'I' and next_char in 'VX') or \
+                       (current_char == 'X' and next_char in 'LC') or \
+                       (current_char == 'C' and next_char in 'DM'):
+                        sequence_value += (next_value - current_value)
+                        i += 2  # Skip both characters
+                        continue
+                
+                sequence_value += current_value
+                i += 1
+            
+            total += sequence_value
+            logger.info(f"Found Roman numeral sequence: '{sequence}' = {sequence_value}")
+        
+        return total
+    
     def _validate_palindrome(self, password: str, length: int) -> bool:
         """Check for palindromes of specific length in the password"""
         for i in range(len(password) - length + 1):
@@ -373,9 +413,7 @@ class PasswordRuleManager:
         
         # The sum of the roman numerals must be a multiple of 21
         elif "sum of the roman numerals" in rule_lower and "multiple of 21" in rule_lower:
-            roman_values = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
-            total = sum(roman_values.get(char, 0) for char in password if char in roman_values)
-            return total > 0 and total % 21 == 0
+            return self._parse_roman_numerals(password) % 21 == 0
         
         # Your password must include an answer to a riddle: What has keys but can't open locks?
         elif "riddle" in rule_lower and "what has keys but can't open locks" in rule_lower:

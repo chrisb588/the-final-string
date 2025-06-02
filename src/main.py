@@ -1144,12 +1144,15 @@ class GameDemo:
         
         if interaction_type == "note_collected":
             rule = result.get("rule", "")
+            message = result.get("message", "")
             if rule:
                 game_state.add_rule(rule, result.get("note_id"))
                 # Also add to current level rules
                 if rule not in self.current_level_rules:
                     self.current_level_rules.append(rule)
-                self.message_ui.show_message(f"Rule collected: {rule}", 3000)
+                # Use custom message if available, otherwise default format
+                display_message = message if message else f"Rule collected: {rule}"
+                self.message_ui.show_message(display_message, 3000)
             
         elif interaction_type == "note_already_collected":
             message = result.get("message", "Already read this note.")

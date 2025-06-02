@@ -32,6 +32,10 @@ def setup_level_interactables():
     
     # ===== TEST LEVEL INTERACTABLES =====
     setup_test_level()
+    
+    # ===== NPC EXAMPLES =====
+    # Uncomment the line below to see NPC examples in action
+    # setup_npc_examples()
 
 def setup_level_0():
     """Setup interactables for Level 0 - Starting level with predetermined tutorial rules"""
@@ -268,6 +272,110 @@ def setup_example_patterns():
     interactable_manager.add_multi_tile_interactable_coords(
         level_name, cross_coords, 
         "Cross pattern rule"
+    )
+
+def setup_npc_examples():
+    """Example of setting up NPCs with and without rules"""
+    level_name = "npc-example-level"
+    
+    # ===== SINGLE-TILE NPCs =====
+    
+    # NPC with a rule (will give secret when interacted with)
+    interactable_manager.add_single_tile_npc(
+        level_name, 5, 5, 
+        npc_name="Resting Goblin", 
+        rule="Password must contain the word 'goblin'",
+        tile_id="26"  # Use a different tile ID for NPCs if desired
+    )
+    
+    # NPC without a rule (will just chat casually)
+    interactable_manager.add_single_tile_npc(
+        level_name, 10, 8, 
+        npc_name="Evil Chest",
+        tile_id="27"
+    )
+    
+    # NPC with random name (will be chosen from the list)
+    interactable_manager.add_single_tile_npc(
+        level_name, 15, 12, 
+        rule="Password must end with '!'",
+        tile_id="28"
+    )
+    
+    # ===== MULTI-TILE NPCs =====
+    
+    # Large NPC with rule covering multiple tiles
+    large_npc_coords = [(20, 5), (21, 5), (22, 5), (20, 6), (21, 6), (22, 6)]
+    interactable_manager.add_multi_tile_npc_coords(
+        level_name, large_npc_coords,
+        npc_name="Guardian of the Agaricales",
+        rule="Password must contain a mushroom reference",
+        tile_id="29"
+    )
+    
+    # L-shaped NPC without rule
+    l_shape_coords = [(25, 10), (25, 11), (25, 12), (26, 12), (27, 12)]
+    interactable_manager.add_multi_tile_npc_coords(
+        level_name, l_shape_coords,
+        npc_name="Mr. Froggy",
+        tile_id="30"
+    )
+    
+    # ===== MIXED INTERACTABLES WITH NPCs =====
+    
+    # Regular note
+    interactable_manager.add_single_tile_interactable(
+        level_name, 30, 15,
+        "Password must be at least 8 characters long"
+    )
+    
+    # Door requiring rules from both notes and NPCs
+    interactable_manager.add_door_coordinates(
+        level_name, 35, 20, 
+        required_rules=4
+    )
+
+def setup_level_with_npcs():
+    """Example level setup that mixes regular notes with NPCs"""
+    level_name = "level-with-npcs"
+    
+    # Traditional notes
+    interactable_manager.add_single_tile_interactable(
+        level_name, 5, 5, 
+        "Password must be at least 8 characters long"
+    )
+    
+    # NPCs with rules (these participate in randomization just like notes)
+    interactable_manager.add_single_tile_npc(
+        level_name, 10, 8, 
+        npc_name="Wise Goblin Miner", 
+        rule="Password must contain at least one number"
+    )
+    
+    interactable_manager.add_single_tile_npc(
+        level_name, 15, 12, 
+        npc_name="Alagad ni Colonel Sanders",
+        rule="Password must contain at least one uppercase letter"
+    )
+    
+    # NPCs without rules (just for atmosphere/conversation)
+    interactable_manager.add_single_tile_npc(
+        level_name, 20, 6, 
+        npc_name="Moo-chan"  # No rule = casual chat only
+    )
+    
+    # Multi-tile NPC with rule
+    mushroom_coords = [(25, 10), (26, 10), (25, 11), (26, 11)]
+    interactable_manager.add_multi_tile_npc_coords(
+        level_name, mushroom_coords,
+        npc_name="Guardian of the Agaricales",
+        rule="Password must contain a special character (!@#$%)"
+    )
+    
+    # Door requiring rules from both notes and NPCs
+    interactable_manager.add_door_coordinates(
+        level_name, 30, 15, 
+        required_rules=4  # Needs 4 rules total (from notes + NPCs)
     )
 
 # Call this function to initialize all interactables
