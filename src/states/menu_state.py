@@ -29,14 +29,14 @@ class Menu:
         
         # Initialize all states with surface instead of screen
         self.states = {
-            STATE_LOADING: LoadingMenuState(self.screen, self.terminal),
+            STATE_MENU_LOADING: LoadingMenuState(self.screen, self.terminal),
             STATE_MENU: MenuOptionsState(self.screen, self.terminal),
-            STATE_HOW_TO_PLAY: HowToPlayState(self.screen, self.terminal),
-            STATE_SETTINGS: SettingsState(self.screen, self.terminal),
-            STATE_CREDITS: CreditsState(self.screen, self.terminal)
+            STATE_MENU_HOW_TO_PLAY: HowToPlayState(self.screen, self.terminal),
+            STATE_MENU_SETTINGS: SettingsState(self.screen, self.terminal),
+            STATE_MENU_CREDITS: CreditsState(self.screen, self.terminal)
         }
         
-        self.current_state = STATE_LOADING
+        self.current_state = STATE_MENU_LOADING
         self.clock = pygame.time.Clock()
 
     def enter(self):
