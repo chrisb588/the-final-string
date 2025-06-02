@@ -48,7 +48,29 @@ class TileSprite(pygame.sprite.Sprite):
             self.rect.size = self._original_rect.size
             if hasattr(self, '_original_image'):
                 self.image = self._original_image.copy()
+class AnimatedTileSprite(TileSprite):
+    """Sprite for animated tiles like es"""
+    def __init__(self, tile_data, world_x, world_y, frames, frame_duration_ms, layer_depth):
+        super().__init__(tile_data, world_x, world_y, frames[0], layer_depth)
+        self.frames = frames
+        self.frame_duration = frame_duration_ms
+        self.current_frame = 0
+        self.last_update = pygame.time.get_ticks()
+        self._original_image = frames[0].copy()
 
+    def update_animation(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_update > self.frame_duration:
+            self.current_frame = (self.current_frame + 1) % len(self.frames)
+            self.image = self.frames[self.current_frame]
+            self._original_image = self.image.copy()
+            self.last_update = now
+    
+    def reset_animation(self):
+        self.current_frame = 0
+        self.last_update = pygame.time.get_ticks()
+        self.image = self.frames[0]
+        self._original_image = self.image.copy()
 class LayeredTileRenderer:
     """Enhanced tile renderer using pygame's LayeredUpdates for proper layering"""
     
@@ -512,3 +534,170 @@ class LayeredLevelManager:
             
             for sprite in sprites_to_remove:
                 self.tile_sprites.remove(sprite)
+
+    def _create_tile_sprites(self):
+        """Create TileSprite objects for all tiles in all layers"""
+        if not self.current_level:
+            return
+
+        # Level-specific animation config
+        level_animation_frames = {
+            "level-1": {
+                "2": ["141", "142"],
+                "32": ["141", "142"],
+                "31": ["146", "147"],
+                "103": ["148", "149"],
+            },
+             "level-2": {
+                "389": ["389", "228", "402"],
+                "390": ["390", "397", "403"],
+                "391": ["391", "230", "232"],
+                "392": ["392", "398", "404"],
+                "234": ["234", "399", "405"],
+                "235": ["235", "399", "405"],
+                "393": ["393", "400", "406"],
+                "394": ["394", "229", "233"],
+                "395": ["395", "401", "407"],
+                "396": ["396", "231", "408"],
+                "228": ["228", "402", "389"],
+                "397": ["397", "403", "390"],
+                "230": ["230", "232", "391"],
+                "398": ["398", "404", "392"],
+                "399": ["399", "405", "234"],
+                "400": ["400", "406", "393"],
+                "229": ["229", "233", "394"],
+                "401": ["401", "407", "395"],
+                "231": ["231", "408", "396"],
+                "402": ["402", "228", "389"],
+                "403": ["403", "397", "390"],
+                "232": ["232", "391", "230"],
+                "404": ["404", "398", "392"],
+                "405": ["405", "399", "234"],
+                "406": ["406", "400", "393"],
+                "233": ["233", "229", "394"],
+                "407": ["407", "401", "395"],
+                "408": ["408", "231", "396"],
+                "409": ["409", "345", "422"],
+                "410": ["410", "418", "352"],
+                "411": ["411", "346", "423"],
+                "412": ["412", "419", "424"],
+                "413": ["413", "236", "351"],
+                "414": ["414", "420", "425"],
+                "415": ["415", "371", "426"],
+                "416": ["416", "421", "427"],
+                "417": ["417", "380", "362"],
+                "345": ["345", "409", "422"],
+                "418": ["418", "410", "352"],
+                "346": ["346", "411", "423"],
+                "419": ["419", "412", "424"],
+                "236": ["236", "413", "351"],
+                "243": ["243", "413", "351"],
+                "420": ["420", "414", "425"],
+                "421": ["421", "416", "427"],
+                "380": ["380", "417", "362"],
+                "422": ["422", "345", "409"],
+                "352": ["352", "418", "410"],
+                "423": ["423", "346", "411"],
+                "424": ["424", "419", "412"],
+                "351": ["351", "236", "413"],
+                "425": ["425", "420", "414"],
+                "426": ["426", "371", "415"],
+                "427": ["427", "421", "416"],
+                "362": ["362", "380", "417"]
+            },
+            "level-3": {
+                "246": ["246", "339", "343"],
+                "247": ["247", "340", "344"],
+                "248": ["248", "341", "345"],
+                "250": ["250", "338", "342"],
+                "251": ["251", "339", "343"],
+                "159": ["159", "172", "195"],
+                "172": ["172", "159", "195"],
+                "195": ["195", "159", "172"],
+            },
+            # Add more levels as needed
+        }
+        frame_duration = 240  # ms per frame
+
+        animation_frames = level_animation_frames.get(self.current_level_name, {})
+
+        for layer_index, layer_data in enumerate(reversed(self.current_level.raw_data.get('layers', []))):
+            depth = layer_index * 10
+            layer_name = layer_data.get('name', '')
+
+            for tile_data in layer_data['tiles']:
+                if (layer_name == "interactables" and 
+                    tile_data.get("type") in ["empty", "multi_empty"] and 
+                    not tile_data.get("rule")):
+                    continue
+
+                tile_id = tile_data.get('id')
+                if not tile_id:
+                    continue
+
+                world_x, world_y = self.current_level.tile_to_pixel(
+                    tile_data['x'], tile_data['y']
+                )
+
+                # ---  Animation Integration ---
+                if tile_id in animation_frames:
+                    frames = []
+                    for frame_id in animation_frames[tile_id]:
+                        frame_surface = self.renderer.get_tile_surface(
+                            frame_id,
+                            self.current_level.tile_size,
+                            self.current_level_name
+                        )
+                        if frame_surface:
+                            frames.append(frame_surface)
+                    if frames:
+                        tile_sprite = AnimatedTileSprite(
+                            tile_data, world_x, world_y, frames, frame_duration, depth
+                        )
+                        tile_sprite.reset_animation()
+                        self.tile_sprites.add(tile_sprite, layer=depth)
+                        continue  # Skip normal sprite creation
+
+                # --- Normal static tile ---
+                tile_surface = self.renderer.get_tile_surface(
+                    tile_id, 
+                    self.current_level.tile_size, 
+                    self.current_level_name
+                )
+                if tile_surface:
+                    tile_sprite = TileSprite(
+                        tile_data, world_x, world_y, tile_surface, depth
+                    )
+                    self.tile_sprites.add(tile_sprite, layer=depth)
+    def update(self):
+        """Update all sprites and handle culling"""
+        if not self.current_level:
+            return
+
+        camera_x, camera_y = int(self.camera.x), int(self.camera.y)
+        zoom = self.camera.zoom
+
+        self.visible_sprites.empty()
+
+        if self.cull_offscreen_sprites:
+            effective_width, effective_height = self.camera.get_effective_screen_size()
+            visible_rect = pygame.Rect(
+                camera_x - self.sprite_culling_margin,
+                camera_y - self.sprite_culling_margin,
+                effective_width + 2 * self.sprite_culling_margin,
+                effective_height + 2 * self.sprite_culling_margin
+            )
+
+            for sprite in self.tile_sprites:
+                # Animate  tiles
+                if isinstance(sprite, AnimatedTileSprite):
+                    sprite.update_animation()
+                if sprite._original_rect.colliderect(visible_rect):
+                    sprite.update_screen_position(camera_x, camera_y, zoom)
+                    self.visible_sprites.add(sprite)
+        else:
+            for sprite in self.tile_sprites:
+                if isinstance(sprite, AnimatedTileSprite):
+                    sprite.update_animation()
+                sprite.update_screen_position(camera_x, camera_y, zoom)
+                self.visible_sprites.add(sprite)
