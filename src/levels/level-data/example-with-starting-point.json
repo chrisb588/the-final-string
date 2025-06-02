@@ -1,0 +1,154 @@
+{
+  "tileSize": 16,
+  "mapWidth": 20,
+  "mapHeight": 15,
+  "startingPoint": {
+    "x": 5,
+    "y": 7
+  },
+  "metadata": {
+    "description": "Example level with custom starting point",
+    "author": "Game Developer",
+    "rule_count": 4
+  },
+  "layers": [
+    {
+      "name": "ground",
+      "tiles": [
+        {
+          "id": "22",
+          "x": 0,
+          "y": 0
+        },
+        {
+          "id": "23",
+          "x": 1,
+          "y": 0
+        },
+        {
+          "id": "24",
+          "x": 2,
+          "y": 0
+        },
+        {
+          "id": "22",
+          "x": 3,
+          "y": 0
+        },
+        {
+          "id": "23",
+          "x": 4,
+          "y": 0
+        },
+        {
+          "id": "24",
+          "x": 5,
+          "y": 0
+        },
+        {
+          "id": "22",
+          "x": 6,
+          "y": 0
+        },
+        {
+          "id": "23",
+          "x": 7,
+          "y": 0
+        },
+        {
+          "id": "24",
+          "x": 8,
+          "y": 0
+        },
+        {
+          "id": "22",
+          "x": 9,
+          "y": 0
+        }
+      ],
+      "collider": false
+    },
+    {
+      "name": "walls",
+      "tiles": [
+        {
+          "id": "8",
+          "x": 0,
+          "y": 1
+        },
+        {
+          "id": "8",
+          "x": 1,
+          "y": 1
+        },
+        {
+          "id": "8",
+          "x": 8,
+          "y": 1
+        },
+        {
+          "id": "8",
+          "x": 9,
+          "y": 1
+        }
+      ],
+      "collider": true
+    },
+    {
+      "name": "interactables",
+      "tiles": [
+        {
+          "id": "25",
+          "x": 9,
+          "y": 1,
+          "type": "note",
+          "multi_group": "multi_4483",
+          "is_primary": true,
+          "rule": "Password must be at least 8 characters long"
+        },
+        {
+          "id": "25",
+          "x": 8,
+          "y": 1,
+          "type": "note",
+          "multi_group": "multi_4483",
+          "is_primary": false,
+          "rule": "Password must end with a special character (!@#$%)"
+        },
+        {
+          "id": "25",
+          "x": 9,
+          "y": 1,
+          "type": "note",
+          "multi_group": "multi_6521",
+          "is_primary": true,
+          "rule": "Password must contain at least one number"
+        },
+        {
+          "id": "25",
+          "x": 8,
+          "y": 1,
+          "type": "note",
+          "multi_group": "multi_6521",
+          "is_primary": false,
+          "rule": "Password must be at least 8 characters long"
+        },
+        {
+          "id": "25",
+          "x": 1,
+          "y": 1,
+          "type": "note",
+          "rule": "Password must contain at least one uppercase letter"
+        },
+        {
+          "x": 5,
+          "y": 0,
+          "type": "note",
+          "id": "25",
+          "rule": "Password must contain at least one number"
+        }
+      ],
+      "collider": true
+    }
+  ]
+}

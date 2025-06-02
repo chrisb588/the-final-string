@@ -39,18 +39,23 @@ class Level:
         # Store raw data for reference
         self.raw_data = data
         
-        # Process layers
-        self.layers = {}
-        self.layer_order = []
+        # Process starting point
+        self.starting_point = self._parse_starting_point(data)
         
-        for layer_data in data.get('layers', []):
+        # Process layers
+        self.layers = {}  # Change to store with unique IDs
+        self.layer_order = []  # Keep original order
+        
+        for idx, layer_data in enumerate(data.get('layers', [])):
+            # Create unique layer ID using name and index
+            layer_id = f"{layer_data['name']}_{idx}"
             layer = TileLayer(
                 name=layer_data['name'],
                 tiles=layer_data['tiles'],
                 collider=layer_data.get('collider', False)
             )
-            self.layers[layer.name] = layer
-            self.layer_order.append(layer.name)
+            self.layers[layer_id] = layer
+            self.layer_order.append(layer_id)
     
     def get_layer(self, name: str) -> Optional[TileLayer]:
         """Get a specific layer by name"""
@@ -61,14 +66,28 @@ class Level:
         return [layer for layer in self.layers.values() if layer.collider]
     
     def get_render_layers(self) -> List[TileLayer]:
-        """Get all layers in reverse render order (last JSON layer first)"""
-        # Return layers in reverse order of how they were stored
-        return [self.layers[name] for name in reversed(self.layer_order) if name in self.layers]
+        """Get all layers in exact JSON order"""
+        return [self.layers[layer_id] for layer_id in self.layer_order]
     
     def is_collision_at(self, x: int, y: int) -> bool:
         """Check if there's a collision at the given tile coordinates"""
         for layer in self.get_collision_layers():
             if layer.has_tile_at(x, y):
+                # Special handling for interactables layer
+                if layer.name == "interactables":
+                    # Get the tile data to check if it's an empty interactable
+                    tile_data = layer.get_tile_at(x, y)
+                    if tile_data:
+                        # Empty interactables (without rules) should not cause collision
+                        if (tile_data.get("type") == "empty" and 
+                            not tile_data.get("rule")):
+                            continue
+                        # Multi-tile empty interactables should not cause collision
+                        if (tile_data.get("type") == "multi_empty" and 
+                            not tile_data.get("rule")):
+                            continue
+                
+                # All other tiles in collision layers cause collision
                 return True
         return False
     
@@ -83,6 +102,43 @@ class Level:
     def pixel_to_tile(self, pixel_x: int, pixel_y: int) -> Tuple[int, int]:
         """Convert pixel coordinates to tile coordinates"""
         return (pixel_x // self.tile_size, pixel_y // self.tile_size)
+    
+    def _parse_starting_point(self, data: Dict[str, Any]) -> Tuple[int, int]:
+        """Parse starting point from level data"""
+        # Check for explicit starting point in level data
+        if 'startingPoint' in data:
+            start_data = data['startingPoint']
+            if isinstance(start_data, dict):
+                x = start_data.get('x', 0)
+                y = start_data.get('y', 0)
+                # Convert tile coordinates to pixel coordinates
+                return self.tile_to_pixel(x, y)
+            elif isinstance(start_data, list) and len(start_data) >= 2:
+                # Convert tile coordinates to pixel coordinates
+                return self.tile_to_pixel(start_data[0], start_data[1])
+        
+        # Check for starting point in metadata
+        if 'metadata' in data and 'startingPoint' in data['metadata']:
+            start_data = data['metadata']['startingPoint']
+            if isinstance(start_data, dict):
+                x = start_data.get('x', 0)
+                y = start_data.get('y', 0)
+                return self.tile_to_pixel(x, y)
+            elif isinstance(start_data, list) and len(start_data) >= 2:
+                return self.tile_to_pixel(start_data[0], start_data[1])
+        
+        # Default starting point (center of map)
+        center_x = (self.map_width // 2) * self.tile_size
+        center_y = (self.map_height // 2) * self.tile_size
+        return (center_x, center_y)
+    
+    def get_starting_point(self) -> Tuple[int, int]:
+        """Get the starting point in pixel coordinates"""
+        return self.starting_point
+    
+    def get_starting_point_tiles(self) -> Tuple[int, int]:
+        """Get the starting point in tile coordinates"""
+        return self.pixel_to_tile(self.starting_point[0], self.starting_point[1])
 
 class LevelLoader:
     """Handles loading and parsing of level data"""
