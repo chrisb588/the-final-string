@@ -22,8 +22,12 @@ from states.end_state import EndState  # You'll need to create this
 class Game:
     def __init__(self):
         pygame.init()
+        self.is_fullscreen = False
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF | OPENGL)
         pygame.display.set_caption("The Final String")
+        
+        # Store original resolution for toggling
+        self.windowed_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
         
         # Create game surface for regular rendering
         self.game_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -45,6 +49,31 @@ class Game:
         self.current_state = 'menu'
         self.clock = pygame.time.Clock()
         self.running = True
+
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode"""
+        self.is_fullscreen = not self.is_fullscreen
+        if self.is_fullscreen:
+            # Get the current display info
+            display_info = pygame.display.Info()
+            # Set to fullscreen at desktop resolution
+            self.screen = pygame.display.set_mode(
+                (display_info.current_w, display_info.current_h),
+                DOUBLEBUF | OPENGL | pygame.FULLSCREEN
+            )
+        else:
+            # Return to windowed mode
+            self.screen = pygame.display.set_mode(
+                self.windowed_size,
+                DOUBLEBUF | OPENGL
+            )
+        
+        # Reinitialize CRT filter for new resolution
+        if self.is_fullscreen:
+            display_info = pygame.display.Info()
+            self.crt_filter = CRTFilter(display_info.current_w, display_info.current_h)
+        else:
+            self.crt_filter = CRTFilter(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     def render_frame(self):
         """Handle the complete rendering pipeline"""
@@ -72,6 +101,9 @@ class Game:
                     self.running = False
                     continue
                 
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_F11:
+                        self.toggle_fullscreen()
                 # Let current state handle events
                 # if hasattr(self.states[self.current_state], 'run'):
                 #     next_state = self.states[self.current_state].run(event)
