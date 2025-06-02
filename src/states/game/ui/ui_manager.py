@@ -21,6 +21,11 @@ class UIManager:
     def _init_components(self):
         """Initialize all UI components in rendering order"""
         try:
+            # Set initial states
+            self.show_debug = False
+            self.show_coordinates = False
+            self.show_speed_debug = False
+            
             # Initialize password UI first as other components may depend on it
             self.password_ui = PasswordUI(self.screen)
             
@@ -28,13 +33,9 @@ class UIManager:
             self.dialogue_box_ui = DialogueBox(self.screen, ui_manager=self.password_ui)
             self.rules_ui = RulesCount(self.screen, ui_manager=self.password_ui)
             self.compass = Compass(self.screen)
+            self.compass.show_speed_debug = self.show_speed_debug
             self.hud = HUD(self.screen)
             self.pause_button = PauseButton(self.screen)
-            
-            # Set initial states
-            self.show_debug = False
-            self.show_coordinates = False
-            self.show_speed_debug = False
             
         except Exception as e:
             print(f"Error initializing UI components: {e}")
@@ -64,7 +65,7 @@ class UIManager:
             if self.show_speed_debug:
                 self.hud.draw_speed_indicator(game_data.get('player_speed', 0))
             self.hud.draw_zoom_indicator(game_data.get('camera_zoom', 1.0))
-            
+
             # Render compass if we have door data
             nearest_door = game_data.get('nearest_door')
             if nearest_door:
@@ -72,6 +73,8 @@ class UIManager:
                     nearest_door,
                     game_data.get('door_angle', 0)
                 )
+
+            self.hud.render()
                 
             # Render interactive UI elements
             self.dialogue_box_ui.render()
@@ -148,3 +151,4 @@ class UIManager:
         if show_speed_debug is not None:
             self.show_speed_debug = show_speed_debug
             self.hud.show_speed_debug = show_speed_debug
+            self.compass.show_speed_debug = show_speed_debug

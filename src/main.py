@@ -158,7 +158,7 @@ class GameDemo:
                     self.smooth_camera = not self.smooth_camera
                 
                 elif event.key == pygame.K_F3:
-                    self.hud.show_coordinates = not self.hud.show_coordinates
+                    self.ui_manager.hud.show_coordinates = not self.ui_manager.hud.show_coordinates
                 
                 elif event.key == pygame.K_F4:
                     # Toggle creation mode
@@ -189,7 +189,7 @@ class GameDemo:
                     self.ui_manager.show_message(f"Creation mode: {mode_text}", 2000)
                 
                 elif event.key == pygame.K_F5:
-                    self.hud.show_speed_debug = not self.hud.show_speed_debug
+                    self.ui_manager.hud.show_speed_debug = not self.ui_manager.hud.show_speed_debug
                 
                 elif event.key == pygame.K_SPACE:
                     self.paused = not self.paused
@@ -246,19 +246,19 @@ class GameDemo:
                     game_state.clear_rules_for_testing()
                     self.ui_manager.show_message("Rules cleared for testing!", 2000)
                 
-                elif event.key == pygame.K_i and self.hud.show_coordinates:
+                elif event.key == pygame.K_i and self.ui_manager.hud.show_coordinates:
                     # Show programmatic interactables info for current level
                     self._show_interactables_info()
                 
-                elif event.key == pygame.K_x and self.hud.show_coordinates:
+                elif event.key == pygame.K_x and self.ui_manager.hud.show_coordinates:
                     # Copy current mouse coordinates to console
                     self._copy_mouse_coordinates()
                 
-                elif event.key == pygame.K_DELETE and self.hud.show_coordinates:
+                elif event.key == pygame.K_DELETE and self.ui_manager.hud.show_coordinates:
                     # Clean up duplicate interactables
                     self._clean_duplicate_interactables()
                 
-                elif event.key == pygame.K_z and self.hud.show_coordinates:
+                elif event.key == pygame.K_z and self.ui_manager.hud.show_coordinates:
                     # Force reload level from file (useful for testing saved interactables)
                     current_name = self.level_manager.current_level_name
                     if current_name:
@@ -488,6 +488,8 @@ class GameDemo:
             player_x, player_y,
             smooth=self.smooth_camera
         )
+
+        self.ui_manager.compass.update_position()
         
         # Update UI manager
         self.ui_manager.update(self.clock.get_time() / 1000.0)
@@ -525,14 +527,14 @@ class GameDemo:
             }
         }
 
-        # Single call to render all UI elements
-        self.ui_manager.render(game_data)
-
         if self.creation_mode:
             self._draw_selected_tiles()
 
         # Render player
         self.player.render(self.screen, self.level_manager.camera)
+
+        # Render UI
+        self.ui_manager.render(game_data)
 
         # Update display
         pygame.display.flip()
