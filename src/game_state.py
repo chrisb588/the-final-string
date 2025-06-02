@@ -50,7 +50,7 @@ class PasswordRuleManager:
             "Your password must contain a string in the language defined by the regular expression (a*(ab | bb)*) over the alphabet {a,b}.",
             "Include a base64-encoded version of the word 'Dulaca'.",
             "Your password must contain a valid color hex code.",
-            "Your password must have the year that Filipino tennis player Alex Eala debuted in professional tennis. The year must be written in base 2 format.",
+            "Your password must have the year that Filipino tennis player Alex Eala debuted in professional tennis.",
             "The length of your password must be a prime number.",
             "Your password must contain the answer to this question 'Complete the line from one of Sabrina Carpenter's songs: 'You fit every stereotype, \"___\"'.",
             "Your password must contain the answer to this question 'Are nondeterministic finite automata more powerful than their equivalent deterministic finite automata?'",
@@ -394,9 +394,9 @@ class PasswordRuleManager:
             hex_pattern = r'#[0-9A-Fa-f]{6}'
             return bool(re.search(hex_pattern, password))
         
-        # Alex Eala debut year in base 2 format
-        elif "alex eala debuted" in rule_lower and "base 2 format" in rule_lower:
-            return "11111100100" in password  # 2020 in binary
+        # Alex Eala debut year (2020)
+        elif "alex eala debuted" in rule_lower:
+            return "2020" in password  # 2020 in decimal format
         
         # The length of your password must be a prime number
         elif "length of your password must be a prime number" in rule_lower:
