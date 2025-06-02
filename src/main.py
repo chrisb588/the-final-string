@@ -18,9 +18,16 @@ class GameDemo:
         pygame.init()
         
         # Screen settings
-        self.screen_width = 1024
-        self.screen_height = 768
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        self.windowed_width = 1024
+        self.windowed_height = 768
+        self.min_width = 1024
+        self.min_height = 768
+        self.is_fullscreen = False
+        
+        # Initialize in windowed mode with resizable flag
+        self.screen_width = self.windowed_width
+        self.screen_height = self.windowed_height
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
         pygame.display.set_caption("Layered Tileset Demo")
         
         # Game settings
@@ -91,11 +98,84 @@ class GameDemo:
         # Setup programmatic interactables from configuration
         setup_level_interactables()
     
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode"""
+        self.is_fullscreen = not self.is_fullscreen
+        
+        if self.is_fullscreen:
+            # Get the current display resolution
+            info = pygame.display.Info()
+            self.screen_width = info.current_w
+            self.screen_height = info.current_h
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
+            self.message_ui.show_message("Switched to fullscreen (F11 to toggle)", 2000)
+        else:
+            # Return to windowed mode with resizable flag
+            self.screen_width = self.windowed_width
+            self.screen_height = self.windowed_height
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
+            self.message_ui.show_message("Switched to windowed mode (F11 to toggle, drag to resize)", 2000)
+        
+        self._update_components_for_new_screen_size()
+    
+    def handle_resize(self, new_width: int, new_height: int):
+        """Handle window resize event"""
+        # Enforce minimum size
+        new_width = max(new_width, self.min_width)
+        new_height = max(new_height, self.min_height)
+        
+        # Update screen size
+        self.screen_width = new_width
+        self.screen_height = new_height
+        
+        # Recreate the screen surface with new size
+        if self.is_fullscreen:
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
+            # Update windowed size memory if not in fullscreen
+            self.windowed_width = new_width
+            self.windowed_height = new_height
+        
+        self._update_components_for_new_screen_size()
+    
+    def _update_components_for_new_screen_size(self):
+        """Update all components when screen size changes"""
+        # Update UI components to use new screen size
+        self.password_ui.screen = self.screen
+        self.message_ui.screen = self.screen
+        self.rules_ui.screen = self.screen
+        
+        # Update level manager screen and dimensions
+        self.level_manager.screen = self.screen
+        self.level_manager.screen_width = self.screen_width
+        self.level_manager.screen_height = self.screen_height
+        
+        # Update camera dimensions and recalculate dependent values
+        camera = self.level_manager.camera
+        camera.screen_width = self.screen_width
+        camera.screen_height = self.screen_height
+        camera.half_screen_width = self.screen_width // 2
+        camera.half_screen_height = self.screen_height // 2
+        
+        # Update matrix background for new resolution
+        self.matrix_background = MatrixBackground(
+            self.screen_width, 
+            self.screen_height, 
+            gif_path="assets/images/matrix_background.gif"
+        )
+        
+        print(f"Screen size updated to {self.screen_width}x{self.screen_height}")
+    
     def handle_events(self):
         """Handle input events"""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            
+            elif event.type == pygame.VIDEORESIZE:
+                # Handle window resize
+                self.handle_resize(event.w, event.h)
             
             # Handle other UI events
             ui_handled = False
@@ -211,6 +291,10 @@ class GameDemo:
                     # Reset speed to default with \
                     self.player.reset_speed()
                     self.message_ui.show_message(f"Speed reset to: {self.player.speed:.1f}", 1000)
+                
+                elif event.key == pygame.K_F11:
+                    # Toggle fullscreen
+                    self.toggle_fullscreen()
                 
                 # Zoom controls
                 elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
@@ -947,8 +1031,10 @@ class GameDemo:
             "F2: Toggle smooth camera",
             "F3: Toggle coordinates",
             "F4: Toggle creation mode",
-            "TAB: Switch note/door/delete mode (in creation mode)",
             "F5: Toggle speed debug",
+            "F11: Toggle fullscreen",
+            "Drag window borders: Resize window",
+            "TAB: Switch note/door/delete mode (in creation mode)",
             "Space: Pause",
             "1-3: Toggle layers (demo)",
             "E: Interact with objects",
