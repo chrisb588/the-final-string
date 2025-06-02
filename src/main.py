@@ -21,7 +21,10 @@ class GameDemo:
         self.screen_width = 1024
         self.screen_height = 768
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        self.is_fullscreen = False
         pygame.display.set_caption("Layered Tileset Demo")
+
+        self.windowed_size = (self.screen_width, self.screen_height)
         
         # Game settings
         self.fps = 60
@@ -93,6 +96,30 @@ class GameDemo:
         
         # Setup programmatic interactables from configuration
         setup_level_interactables()
+
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode"""
+        self.is_fullscreen = not self.is_fullscreen
+        if self.is_fullscreen:
+            # Get the current display info
+            display_info = pygame.display.Info()
+            fullscreen_size = (display_info.current_w, display_info.current_h)
+            
+            # Switch to fullscreen
+            self.screen = pygame.display.set_mode(fullscreen_size, pygame.FULLSCREEN)
+            self.screen_width, self.screen_height = fullscreen_size
+        else:
+            # Switch back to windowed mode
+            self.screen = pygame.display.set_mode(self.windowed_size)
+            self.screen_width, self.screen_height = self.windowed_size
+        
+        # Update UI components that depend on screen size
+        if hasattr(self.ui_manager, 'dialogue_box'):
+            self.ui_manager.dialogue_box._init_dimensions()
+        
+        # Show message about the change
+        mode = "Fullscreen" if self.is_fullscreen else "Windowed"
+        self.ui_manager.show_popup(f"Switched to {mode} mode")
     
     def handle_events(self):
         """Handle input events"""
@@ -106,15 +133,7 @@ class GameDemo:
             # Let password UI handle events first
             if self.ui_manager.handle_event(event):
                 continue
-            
-            # # Let rules display UI handle events
-            # if not ui_handled and self.ui_manager.handle_event(event):
-            #     ui_handled = True
-            
-            # # If UI handled the event, skip the rest of the processing for this event
-            # if ui_handled:
-            #     continue
-            
+
             elif event.type == pygame.MOUSEMOTION:
                 # Update mouse position for debug coordinates
                 self.mouse_x, self.mouse_y = event.pos
@@ -132,6 +151,12 @@ class GameDemo:
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
+
+                # Add fullscreen toggle (Alt + Enter or F11)
+                elif (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or \
+                (event.key == pygame.K_F11):
+                    self.toggle_fullscreen()
+                    continue
                 
                 elif event.key == pygame.K_p or event.key == pygame.K_LEFT:
                     if self.level_manager.load_previous_level():
@@ -474,8 +499,8 @@ class GameDemo:
             
     def update(self):
         """Update game state"""
-        if self.paused or self.ui_manager.password_ui.visible:
-            self.ui_manager.update(self.clock.get_time() / 1000.0)  # Convert to seconds
+        if self.paused or self.ui_manager.password_ui.visible or self.ui_manager.dialogue_box.is_active:
+            self.ui_manager.update(self.clock.get_time() / 1000.0)
             return
         
         # Handle player movement
@@ -515,6 +540,11 @@ class GameDemo:
             'nearest_door': self._get_nearest_door_position(),
             'door_angle': self._calculate_direction_to_door(self._get_nearest_door_position()),
             'current_rules': self.current_level_rules,
+            'total_rules': (
+                interactable_manager.level_metadata.get("rule_count", 0) 
+                if hasattr(interactable_manager, 'level_metadata') 
+                else len(self.current_level_rules)
+            ),
             'paused': self.paused,
             'player_pos': self.player.get_position(),
             'mouse_pos': (self.mouse_x, self.mouse_y),

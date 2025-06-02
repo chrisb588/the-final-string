@@ -6,6 +6,7 @@ from .dialogue_box import DialogueBox
 from .compass import Compass
 from .hud import HUD
 from .pause_button import PauseButton
+from .popup_notification import PopupNotification
 
 class UIManager:
     """Manages all UI components and their interactions"""
@@ -30,28 +31,34 @@ class UIManager:
             self.password_ui = PasswordUI(self.screen)
             
             # Initialize other components
-            self.dialogue_box_ui = DialogueBox(self.screen, ui_manager=self.password_ui)
+            self.dialogue_box = DialogueBox(self.screen, ui_manager=self.password_ui)
             self.rules_ui = RulesCount(self.screen, ui_manager=self.password_ui)
             self.compass = Compass(self.screen)
             self.compass.show_speed_debug = self.show_speed_debug
             self.hud = HUD(self.screen)
             self.pause_button = PauseButton(self.screen)
+            self.popup = PopupNotification(self.screen)
             
         except Exception as e:
             print(f"Error initializing UI components: {e}")
             raise
+
+    def show_popup(self, message: str, duration: int = 2000):
+        """Show a popup notification"""
+        self.popup.show(message, duration)
             
     def show_message(self, message: str, duration: int = 2000):
         """Display a temporary message"""
         try:
-            self.dialogue_box_ui.show_message(message, duration)
+            self.dialogue_box.show_message(message, duration)
         except Exception as e:
             print(f"Error showing message: {e}")
             
     def update(self, delta_time: float):
         """Update all UI components"""
         try:
-            self.dialogue_box_ui.update()
+            self.popup.update()
+            self.dialogue_box.update()
             self.password_ui.update(delta_time)
             if hasattr(self.rules_ui, 'update'):
                 self.rules_ui.update(delta_time)
@@ -77,8 +84,11 @@ class UIManager:
             self.hud.render()
                 
             # Render interactive UI elements
-            self.dialogue_box_ui.render()
-            self.rules_ui.render(game_data.get('current_rules', []))
+            self.dialogue_box.render()
+            self.rules_ui.render(
+                game_data.get('current_rules', []),
+                game_data.get('total_rules', None)
+            )
             self.password_ui.render()
             
             # Render pause button if game is paused
@@ -88,6 +98,8 @@ class UIManager:
             # Render debug info if enabled
             if self.show_coordinates:
                 self._render_debug_info(game_data)
+
+            self.popup.render()
                 
         except Exception as e:
             print(f"Error rendering UI: {e}")
@@ -108,7 +120,14 @@ class UIManager:
     def handle_event(self, event: pygame.event.Event) -> bool:
         """Handle UI-related events"""
         try:
-            # Let password UI handle events first
+            # If dialogue box is active, only handle its events
+            if self.dialogue_box.is_active:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
+                    if self.dialogue_box.typing_complete:
+                        self.dialogue_box.hide()
+                return True  # Block all other events
+                
+            # Handle other UI events as normal
             if self.password_ui.handle_event(event):
                 return True
                 
