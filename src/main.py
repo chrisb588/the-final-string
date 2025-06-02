@@ -8,6 +8,7 @@ from entities.interactables import interactable_manager
 from ui.password_ui import PasswordUI, MessageUI, RulesDisplayUI
 from ui.matrix_background import MatrixBackground
 from interactable_config import setup_level_interactables
+from entities.player import Player
 
 class GameDemo:
     """Demo showing the layered tileset renderer in action"""
@@ -25,15 +26,7 @@ class GameDemo:
         # Game settings
         self.fps = 60
         self.clock = pygame.time.Clock()
-        
-        # Player settings
-        self.player_x = 100
-        self.player_y = 100
-        self.player_speed = 2
-        self.min_speed = 0.5
-        self.max_speed = 10.0
-        self.speed_increment = 0.5
-        
+
         # Debug and control flags
         self.show_debug = False
         self.smooth_camera = True
@@ -58,6 +51,23 @@ class GameDemo:
             self.screen, 
             sprite_sheet_path="assets/images/spritesheets"
         )
+
+        # Replace player variables with Player instance
+        self.player = Player()
+
+        # Level transition persistence
+        self.last_successful_password = ""
+        self.is_transitioning = False
+        self.accumulated_rules = []  # Rules from all previously completed levels
+        self.used_rules = set()     # Add this line to initialize used_rules tracking
+
+        # Load first level and set initial player position
+        if self.level_manager.load_first_level():
+            start_x, start_y = self.level_manager.get_level_starting_point()
+            self.player.set_position(start_x, start_y)
+            self.load_level_interactables()
+        else:
+            print("No levels found! Make sure your level files are in the correct directory.")
         
         # UI components - Pass self (PasswordUI) to other UI elements for consistent styling
         self.password_ui = PasswordUI(self.screen)
@@ -80,16 +90,6 @@ class GameDemo:
         
         # Setup programmatic interactables from configuration
         setup_level_interactables()
-        
-        # Interaction callback not needed - handled directly in interact_with_objects
-        
-        # Try to load first level
-        if not self.level_manager.load_first_level():
-            print("No levels found! Make sure your level files are in the correct directory.")
-        else:
-            # Set player to starting point of the level
-            self.player_x, self.player_y = self.level_manager.get_level_starting_point()
-            self.load_level_interactables()
     
     def handle_events(self):
         """Handle input events"""
@@ -126,13 +126,15 @@ class GameDemo:
                 if event.key == pygame.K_n or event.key == pygame.K_RIGHT:
                     if self.level_manager.load_next_level():
                         # Move player to starting point of new level
-                        self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+                        start_x, start_y = self.level_manager.get_level_starting_point()
+                        self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
                 
                 elif event.key == pygame.K_p or event.key == pygame.K_LEFT:
                     if self.level_manager.load_previous_level():
                         # Move player to starting point of new level
-                        self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+                        start_x, start_y = self.level_manager.get_level_starting_point()
+                        self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
                 
                 elif event.key == pygame.K_r:
@@ -141,7 +143,8 @@ class GameDemo:
                     if current_name:
                         if self.level_manager.load_level(current_name):
                             # Move player to starting point
-                            self.player_x, self.player_y = self.level_manager.get_level_starting_point()
+                            start_x, start_y = self.level_manager.get_level_starting_point()
+                            self.player.set_position(start_x, start_y)
                             self.load_level_interactables()
                 
                 # Debug toggles
@@ -196,18 +199,18 @@ class GameDemo:
                 # Speed controls (when speed debug is on)
                 elif event.key == pygame.K_LEFTBRACKET and self.show_speed_debug:
                     # Decrease speed with [
-                    self.player_speed = max(self.min_speed, self.player_speed - self.speed_increment)
-                    self.message_ui.show_message(f"Speed: {self.player_speed:.1f}", 1000)
-                
+                    self.player.adjust_speed(-self.player.speed_increment)
+                    self.message_ui.show_message(f"Speed: {self.player.speed:.1f}", 1000)
+
                 elif event.key == pygame.K_RIGHTBRACKET and self.show_speed_debug:
                     # Increase speed with ]
-                    self.player_speed = min(self.max_speed, self.player_speed + self.speed_increment)
-                    self.message_ui.show_message(f"Speed: {self.player_speed:.1f}", 1000)
-                
+                    self.player.adjust_speed(self.player.speed_increment)
+                    self.message_ui.show_message(f"Speed: {self.player.speed:.1f}", 1000)
+
                 elif event.key == pygame.K_BACKSLASH and self.show_speed_debug:
                     # Reset speed to default with \
-                    self.player_speed = 2.0
-                    self.message_ui.show_message(f"Speed reset to: {self.player_speed:.1f}", 1000)
+                    self.player.reset_speed()
+                    self.message_ui.show_message(f"Speed reset to: {self.player.speed:.1f}", 1000)
                 
                 # Zoom controls
                 elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
@@ -337,9 +340,11 @@ class GameDemo:
         else:
             # Try to interact with clicked tile
             try:
+                player_x, player_y = self.player.get_position()
+
                 result = interactable_manager.interact_at(
                     self.mouse_tile_x, self.mouse_tile_y, 
-                    self.player_x, self.player_y
+                    player_x, player_y
                 )
                 if result.get("type") != "none":
                     self.handle_interaction(result)
@@ -426,8 +431,10 @@ class GameDemo:
         if not doors:
             return None
         
-        player_tile_x = int(self.player_x // 16)
-        player_tile_y = int(self.player_y // 16)
+        player_x, player_y = self.player.get_position()
+        
+        player_tile_x = int(player_x // 16)
+        player_tile_y = int(player_y // 16)
         
         # Find the nearest door
         nearest_door = None
@@ -450,8 +457,10 @@ class GameDemo:
         if not door_pos:
             return 0
         
-        player_tile_x = int(self.player_x // 16)
-        player_tile_y = int(self.player_y // 16)
+        player_x, player_y = self.player.get_position()
+        
+        player_tile_x = int(player_x // 16)
+        player_tile_y = int(player_y // 16)
         
         door_x, door_y = door_pos
         
@@ -639,40 +648,19 @@ class GameDemo:
             
     def update(self):
         """Update game state"""
-        if self.paused:
-            return
-        
-        # Disable movement when password UI is visible
-        if self.password_ui.visible:
-            # Still update UI components and camera, but skip player movement
+        if self.paused or self.password_ui.visible:
             self.message_ui.update()
             self.matrix_background.update()
             return
         
         # Handle player movement
         keys = pygame.key.get_pressed()
-        old_x, old_y = self.player_x, self.player_y
-        
-        # Check if shift is held for running
-        is_running = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
-        current_speed = self.player_speed * 1.5 if is_running else self.player_speed
-        
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.player_y -= current_speed
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.player_y += current_speed
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.player_x -= current_speed
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.player_x += current_speed
-        
-        # Check collision and revert if needed
-        if self.level_manager.check_collision(self.player_x, self.player_y):
-            self.player_x, self.player_y = old_x, old_y
+        self.player.move(keys, self.level_manager)
         
         # Update camera to follow player
+        player_x, player_y = self.player.get_position()
         self.level_manager.update_camera(
-            self.player_x, self.player_y, 
+            player_x, player_y,
             smooth=self.smooth_camera
         )
         
@@ -704,19 +692,8 @@ class GameDemo:
         if self.creation_mode:
             self._draw_selected_tiles()
         
-        # Draw player (simple representation) - account for zoom
-        player_screen_x, player_screen_y = self.level_manager.camera.apply(
-            self.player_x, self.player_y
-        )
-        # Scale player size with zoom
-        zoom = self.level_manager.camera.zoom
-        player_radius = int(8 * zoom)
-        pygame.draw.circle(
-            self.screen, 
-            (255, 100, 100), 
-            (int(player_screen_x * zoom), int(player_screen_y * zoom)), 
-            player_radius
-        )
+        # Render player
+        self.player.render(self.screen, self.level_manager.camera)
         
         # Draw coordinate debug info
         if self.show_coordinates:
@@ -768,13 +745,15 @@ class GameDemo:
         try:
             font = pygame.font.Font(None, 24)
             small_font = pygame.font.Font(None, 18)
+
+            player_x, player_y = self.player.get_position()
             
             # Player coordinates
-            player_tile_x = int(self.player_x // 16)
-            player_tile_y = int(self.player_y // 16)
+            player_tile_x = int(player_x // 16)
+            player_tile_y = int(player_y // 16)
             
             debug_info = [
-                f"Player: ({player_tile_x}, {player_tile_y}) | Pixel: ({int(self.player_x)}, {int(self.player_y)})",
+                f"Player: ({player_tile_x}, {player_tile_y}) | Pixel: ({int(self.player.get_position()[0])}, {int(self.player_y)})",
                 f"Mouse: ({self.mouse_tile_x}, {self.mouse_tile_y}) | Screen: ({self.mouse_x}, {self.mouse_y})",
             ]
             
@@ -1031,9 +1010,11 @@ class GameDemo:
     
     def check_nearby_interactables(self):
         """Check for nearby interactables and show interaction hints"""
+        player_x, player_y = self.player.get_position()
+
         # Convert player position to tile coordinates
-        player_tile_x = int(self.player_x // 16)
-        player_tile_y = int(self.player_y // 16)
+        player_tile_x = int(player_x // 16)
+        player_tile_y = int(player_y // 16)
         
         # Check adjacent tiles for interactables
         adjacent_positions = [
@@ -1053,8 +1034,8 @@ class GameDemo:
     def interact_with_objects(self):
         """Interact with nearby objects"""
         # Convert player position to tile coordinates
-        player_tile_x = int(self.player_x // 16)
-        player_tile_y = int(self.player_y // 16)
+        player_x, player_y = self.player.get_position()
+        player_tile_x, player_tile_y = self.player.get_tile_position()
         
         # Check adjacent tiles for interactables
         adjacent_positions = [
@@ -1066,7 +1047,7 @@ class GameDemo:
         ]
         
         for tile_x, tile_y in adjacent_positions:
-            result = interactable_manager.interact_at(tile_x, tile_y, self.player_x, self.player_y)
+            result = interactable_manager.interact_at(tile_x, tile_y, player_x, player_y)
             if result.get("type") != "none":
                 self.handle_interaction(result)
                 break
@@ -1315,27 +1296,18 @@ class GameDemo:
     def transition_to_level(self, level_name: str):
         """Transition to a new level"""
         try:
-            # Load the new level
             if self.level_manager.load_level(level_name):
                 # Reset player position to the new level's starting point
                 start_x, start_y = self.level_manager.get_level_starting_point()
-                self.player_x = start_x
-                self.player_y = start_y
+                self.player.set_position(start_x, start_y)
                 
-                # Load interactables for the new level
+                # Set transition flag and load interactables
+                self.is_transitioning = True
                 self.load_level_interactables()
-                
-                # Clear any existing UI
-                self.password_ui.hide()
-                
-                print(f"Successfully transitioned to level: {level_name}")
-                self.message_ui.show_message(f"Welcome to {level_name}!", 3000)
-            else:
-                print(f"Failed to load level: {level_name}")
-                self.message_ui.show_message(f"Failed to load {level_name}", 3000)
+                return True
         except Exception as e:
             print(f"Error transitioning to level {level_name}: {e}")
-            self.message_ui.show_message(f"Error loading {level_name}", 3000)
+        return False
     
     def _update_door_requirements(self):
         """Update door required rules based on accumulated rules plus current level rules"""
@@ -1362,10 +1334,12 @@ class GameDemo:
         """Draw transparent pale yellow border glow for nearby interactables"""
         zoom = self.level_manager.camera.zoom
         camera = self.level_manager.camera
+
+        player_x, player_y = self.player.get_position()
         
         # Convert player position to tile coordinates for proper comparison
-        player_tile_x = int(self.player_x // 16)
-        player_tile_y = int(self.player_y // 16)
+        player_tile_x = int(player_x // 16)
+        player_tile_y = int(player_y // 16)
         
         for obj in interactable_manager.interactables:
             # Check if player is adjacent to this interactable
