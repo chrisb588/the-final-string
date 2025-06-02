@@ -1341,6 +1341,9 @@ class GameDemo:
         player_tile_x = int(player_x // 16)
         player_tile_y = int(player_y // 16)
         
+        # Collect all nearby interactables (both single and multi-tile)
+        nearby_interactables = []
+        
         for obj in interactable_manager.interactables:
             # Check if player is adjacent to this interactable
             is_player_nearby = False
@@ -1362,63 +1365,142 @@ class GameDemo:
                     is_player_nearby = True
             
             if is_player_nearby:
-                # Determine border color based on interaction state
-                if hasattr(obj, 'collected') and obj.collected:
-                    # Pale grey for collected/used interactables
-                    border_color = (180, 180, 180, 180)  # Transparent pale grey
-                elif hasattr(obj, 'is_open') and obj.is_open:
-                    # Pale grey for open doors
-                    border_color = (180, 180, 180, 180)  # Transparent pale grey
-                else:
-                    # More saturated yellow for unused interactables
-                    border_color = (255, 255, 50, 180)  # Transparent saturated yellow
+                nearby_interactables.append(obj)
+        
+        # Group all adjacent interactables and their tiles
+        grouped_tiles = self._group_all_adjacent_interactables(nearby_interactables)
+        
+        # Draw unified highlights for each group of adjacent interactables
+        for tile_group in grouped_tiles:
+            # Determine the color for this group
+            group_color = self._determine_group_color_for_all(tile_group, nearby_interactables)
+            self._draw_unified_highlight(tile_group, camera, zoom, group_color)
+    
+    def _group_all_adjacent_interactables(self, nearby_interactables):
+        """Group all adjacent interactables together (both single-tile and multi-tile)"""
+        if not nearby_interactables:
+            return []
+        
+        # Collect all tiles from all interactables
+        all_tiles = set()
+        for obj in nearby_interactables:
+            if hasattr(obj, 'tiles'):  # Multi-tile interactable
+                for tile_x, tile_y in obj.tiles:
+                    all_tiles.add((tile_x, tile_y))
+            else:  # Single-tile interactable
+                all_tiles.add((obj.x, obj.y))
+        
+        # Group adjacent tiles together
+        grouped_tiles = []
+        remaining_tiles = all_tiles.copy()
+        
+        while remaining_tiles:
+            # Start a new group with any remaining tile
+            current_group = set()
+            to_process = [remaining_tiles.pop()]
+            
+            while to_process:
+                current_tile = to_process.pop()
+                if current_tile in current_group:
+                    continue
                 
-                # Create a surface for alpha blending
-                border_surface = pygame.Surface((int(16 * zoom), int(16 * zoom)), pygame.SRCALPHA)
+                current_group.add(current_tile)
+                x, y = current_tile
                 
-                if hasattr(obj, 'tiles'):  # Multi-tile interactable
-                    # Draw border glow around all tiles in the group
-                    for tile_x, tile_y in obj.tiles:
-                        world_x = tile_x * 16
-                        world_y = tile_y * 16
-                        screen_x, screen_y = camera.apply(world_x, world_y)
-                        
-                        rect = pygame.Rect(
-                            int(screen_x * zoom), 
-                            int(screen_y * zoom), 
-                            int(16 * zoom), 
-                            int(16 * zoom)
-                        )
-                        
-                        # Clear the border surface
-                        border_surface.fill((0, 0, 0, 0))
-                        
-                        # Draw thin border on the surface
-                        pygame.draw.rect(border_surface, border_color, border_surface.get_rect(), 2)
-                        
-                        # Blit to screen
-                        self.screen.blit(border_surface, rect)
-                        
-                else:  # Single-tile interactable
-                    world_x = obj.x * 16
-                    world_y = obj.y * 16
-                    screen_x, screen_y = camera.apply(world_x, world_y)
-                    
-                    rect = pygame.Rect(
-                        int(screen_x * zoom), 
-                        int(screen_y * zoom), 
-                        int(16 * zoom), 
-                        int(16 * zoom)
-                    )
-                    
-                    # Clear the border surface
-                    border_surface.fill((0, 0, 0, 0))
-                    
-                    # Draw thin border on the surface
-                    pygame.draw.rect(border_surface, border_color, border_surface.get_rect(), 2)
-                    
-                    # Blit to screen
-                    self.screen.blit(border_surface, rect)
+                # Check all 4 adjacent positions (not diagonal)
+                adjacent_positions = [
+                    (x - 1, y),  # Left
+                    (x + 1, y),  # Right
+                    (x, y - 1),  # Up
+                    (x, y + 1),  # Down
+                ]
+                
+                for adj_pos in adjacent_positions:
+                    if adj_pos in remaining_tiles:
+                        to_process.append(adj_pos)
+                        remaining_tiles.remove(adj_pos)
+            
+            grouped_tiles.append(current_group)
+        
+        return grouped_tiles
+    
+    def _determine_group_color_for_all(self, tile_group, nearby_interactables):
+        """Determine the appropriate color for a group of tiles (including single-tile interactables)"""
+        # Check what types of interactables are in this group
+        has_collected_or_used = False
+        
+        for obj in nearby_interactables:
+            # Check if this object's tiles are in the current group
+            obj_tiles_in_group = False
+            
+            if hasattr(obj, 'tiles'):  # Multi-tile interactable
+                obj_tiles_in_group = any((tile_x, tile_y) in tile_group for tile_x, tile_y in obj.tiles)
+            else:  # Single-tile interactable
+                obj_tiles_in_group = (obj.x, obj.y) in tile_group
+            
+            if obj_tiles_in_group:
+                if (hasattr(obj, 'collected') and obj.collected) or (hasattr(obj, 'is_open') and obj.is_open):
+                    has_collected_or_used = True
+                    break  # Found a collected/used item, no need to check further
+        
+        # For proximity hints: only grey for collected/used, yellow for everything else
+        if has_collected_or_used:
+            return (180, 180, 180, 180)  # Grey for collected/used items
+        else:
+            return (255, 255, 50, 180)   # Yellow for all active/unused interactables
+    
+    def _draw_unified_highlight(self, tiles: set, camera, zoom: float, border_color: tuple):
+        """Draw a unified highlight around a group of tiles"""
+        if not tiles:
+            return
+        
+        border_thickness = 2
+        tile_size = int(16 * zoom)
+        
+        # For each tile, draw a filled background and only external borders
+        for tile_x, tile_y in tiles:
+            world_x = tile_x * 16
+            world_y = tile_y * 16
+            screen_x, screen_y = camera.apply(world_x, world_y)
+            
+            tile_rect = pygame.Rect(
+                int(screen_x * zoom), 
+                int(screen_y * zoom), 
+                tile_size, 
+                tile_size
+            )
+            
+            # Create a surface for this tile with alpha support
+            tile_surface = pygame.Surface((tile_size, tile_size), pygame.SRCALPHA)
+            
+            # Fill with a semi-transparent background color
+            background_color = (*border_color[:3], 40)  # Much more transparent background
+            tile_surface.fill(background_color)
+            
+            # Check which edges should have borders (only if adjacent tile is not in the group)
+            
+            # Top edge
+            if (tile_x, tile_y - 1) not in tiles:
+                pygame.draw.rect(tile_surface, border_color, 
+                               (0, 0, tile_size, border_thickness))
+            
+            # Bottom edge
+            if (tile_x, tile_y + 1) not in tiles:
+                pygame.draw.rect(tile_surface, border_color, 
+                               (0, tile_size - border_thickness, tile_size, border_thickness))
+            
+            # Left edge
+            if (tile_x - 1, tile_y) not in tiles:
+                pygame.draw.rect(tile_surface, border_color, 
+                               (0, 0, border_thickness, tile_size))
+            
+            # Right edge
+            if (tile_x + 1, tile_y) not in tiles:
+                pygame.draw.rect(tile_surface, border_color, 
+                               (tile_size - border_thickness, 0, border_thickness, tile_size))
+            
+            # Blit the tile surface to screen
+            self.screen.blit(tile_surface, tile_rect)
     
     def handle_password_ui_close(self, password: str):
         """Handle password UI being closed via X button - save the current password"""

@@ -172,18 +172,30 @@ class Player:
         is_running = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         current_speed = self.speed * 1.5 if is_running else self.speed
         
+        # Calculate movement deltas
+        dx = 0
+        dy = 0
+        
         if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.y -= current_speed
+            dy -= current_speed
         if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.y += current_speed
+            dy += current_speed
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.x -= current_speed
+            dx -= current_speed
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.x += current_speed
-            
-        # Check collision and revert if needed
-        if level_manager.check_collision(self.x, self.y):
-            self.x, self.y = old_x, old_y
+            dx += current_speed
+        
+        # Try X movement first
+        if dx != 0:
+            self.x += dx
+            if level_manager.check_collision(self.x, self.y):
+                self.x = old_x  # Revert only X movement
+        
+        # Try Y movement separately
+        if dy != 0:
+            self.y += dy
+            if level_manager.check_collision(self.x, self.y):
+                self.y = old_y  # Revert only Y movement
 
         # Update animation frame
         self.update_animation()

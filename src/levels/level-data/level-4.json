@@ -25431,6 +25431,11 @@
           "y": 27,
           "type": "door",
           "id": "25"
+        },
+        {
+          "x": 20,
+          "y": 31,
+          "type": "empty"
         }
       ],
       "collider": false
