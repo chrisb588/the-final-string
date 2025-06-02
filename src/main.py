@@ -8,7 +8,7 @@ from entities.interactables import interactable_manager
 from states.game.ui.ui_manager import UIManager
 from interactable_config import setup_level_interactables
 from entities.player import Player
-from states.game.ui.hud import HUD
+from ui.crt_filter import CRTFilter
 
 class GameDemo:
     """Demo showing the layered tileset renderer in action"""
@@ -16,15 +16,21 @@ class GameDemo:
     def __init__(self):
         # Initialize Pygame
         pygame.init()
+
+        display_info = pygame.display.Info()
+        self.user_screen_width = display_info.current_w
+        self.user_screen_height = display_info.current_h
         
         # Screen settings
-        self.screen_width = 1024
-        self.screen_height = 768
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        self.is_fullscreen = False
+        self.screen_width = self.user_screen_width
+        self.screen_height = self.user_screen_height
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
+        # self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        self.pygame_surface = pygame.Surface((self.user_screen_width, self.user_screen_height))
+        self.is_fullscreen = True
         pygame.display.set_caption("Layered Tileset Demo")
 
-        self.windowed_size = (self.screen_width, self.screen_height)
+        self.windowed_size = (1024, 576)
         
         # Game settings
         self.fps = 60
@@ -101,9 +107,7 @@ class GameDemo:
         """Toggle between fullscreen and windowed mode"""
         self.is_fullscreen = not self.is_fullscreen
         if self.is_fullscreen:
-            # Get the current display info
-            display_info = pygame.display.Info()
-            fullscreen_size = (display_info.current_w, display_info.current_h)
+            fullscreen_size = (self.user_screen_width, self.user_screen_height)
             
             # Switch to fullscreen
             self.screen = pygame.display.set_mode(fullscreen_size, pygame.FULLSCREEN)
@@ -595,6 +599,7 @@ class GameDemo:
 
         # Render UI
         self.ui_manager.render(game_data)
+
 
         # Update display
         pygame.display.flip()

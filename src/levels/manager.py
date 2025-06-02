@@ -148,6 +148,22 @@ class Camera:
         self.half_screen_width = screen_width // 2
         self.half_screen_height = screen_height // 2
     
+    def update_viewport(self, width: int, height: int):
+        """Update the viewport dimensions when screen size changes"""
+        self.screen_width = width
+        self.screen_height = height
+        
+        # Update screen size dependent values
+        self.half_screen_width = width // 2
+        self.half_screen_height = height // 2
+        
+        # Recalculate effective screen size for zoom
+        effective_width, effective_height = self.get_effective_screen_size()
+        
+        # Update camera bounds if following a target
+        if hasattr(self, 'target_x') and hasattr(self, 'target_y'):
+            self.update(self.target_x, self.target_y, effective_width, effective_height)
+
     def update(self, target_x: int, target_y: int, level_width: int, level_height: int, smooth: bool = False):
         """Update camera position to follow target (Stardew Valley style)"""
         # Get effective screen size accounting for zoom

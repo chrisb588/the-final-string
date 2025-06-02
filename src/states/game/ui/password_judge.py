@@ -63,6 +63,9 @@ class PasswordUI:
         self.validate_button_hover_color = (100, 150, 200)  # Lighter blue when hovered
         self.validate_button_text_color = (220, 220, 230)  # Light gray text
 
+        # Initialize dimensions
+        self._init_dimensions()
+
     def _init_font(self):
         """Initialize font with fallback"""
         try:
@@ -312,6 +315,48 @@ class PasswordUI:
         # Update rules text scroll if needed
         if self.rules_text:
             self.rules_text.update(delta_time)
+
+    def _init_dimensions(self):
+        """Initialize/update UI dimensions based on screen size"""
+        # Base dimensions
+        self.width = min(700, self.screen.get_width() - 40)  # Max width of 700 or screen width - 40
+        self.height = min(600, self.screen.get_height() - 40)  # Max height of 600 or screen height - 40
+        
+        # Center the UI on screen
+        self.x = (self.screen.get_width() - self.width) // 2
+        self.y = (self.screen.get_height() - self.height) // 2
+        
+        # Update close button position
+        self.close_button_size = 30
+        self.close_button_x = self.x + self.width - self.close_button_size - 10
+        self.close_button_y = self.y + 10
+        self.close_button_rect = pygame.Rect(
+            self.close_button_x, 
+            self.close_button_y, 
+            self.close_button_size, 
+            self.close_button_size
+        )
+        
+        # Update rules text area if it exists
+        if self.rules_text:
+            rules_rect_y = self.y + 120  # Position after title and message
+            rules_rect = pygame.Rect(
+                self.x + 20, 
+                rules_rect_y, 
+                self.width - 40, 
+                250  # Fixed height for rules area
+            )
+            self.rules_text.rect = rules_rect
+        
+        # Update password input area if it exists
+        if self.password_input:
+            input_rect = pygame.Rect(
+                self.x + 20,
+                self.y + 400,  # Position after rules area
+                self.width - 40,
+                35  # Fixed height for input
+            )
+            self.password_input.rect = input_rect
 
     def render(self):
         """Render the password UI"""
