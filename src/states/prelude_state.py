@@ -13,17 +13,16 @@ class PreludeState:
 
     def update(self):
         """Update cutscene state"""
-        return self.cutscene.update()
+        pass
 
     def handle_event(self, event):
         """Handle input events"""
-        return self.cutscene.handle_event(event)
+        pass
 
-    def render(self, surface):
+    def render(self):
         """Render current frame"""
-        if self.cutscene.video_manager.is_playing:
-            self.cutscene.render(surface)
+        pass
 
     def exit(self):
         """Clean up resources"""
-        self.cutscene.exit()
+        pass
