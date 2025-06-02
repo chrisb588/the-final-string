@@ -211,9 +211,12 @@ class Player:
         self.speed = 2.0
         
     def render(self, screen: pygame.Surface, camera) -> None:
-        """Render the player with current animation frame"""
+        """Render the player with current animation frame and shadow"""
         player_screen_x, player_screen_y = camera.apply(self.x, self.y)
         zoom = camera.zoom
+        
+        # Draw shadow first (beneath the player)
+        self._draw_shadow(screen, player_screen_x, player_screen_y, zoom)
         
         try:
             # Safely get current animation frame
@@ -264,3 +267,24 @@ class Player:
                     size
                 )
             )
+    
+    def _draw_shadow(self, screen: pygame.Surface, player_screen_x: float, player_screen_y: float, zoom: float) -> None:
+        """Draw a shadow beneath the player"""
+        # Shadow properties
+        shadow_width = int(14 * zoom)  # Slightly smaller than player
+        shadow_height = int(6 * zoom)  # Flattened oval
+        shadow_offset_y = int(6 * zoom)  # Offset down from player center
+        shadow_alpha = 80  # Semi-transparent (0-255)
+        
+        # Calculate shadow position (centered horizontally, offset down vertically)
+        shadow_x = int(player_screen_x * zoom - shadow_width // 2)
+        shadow_y = int(player_screen_y * zoom - shadow_height // 2 + shadow_offset_y)
+        
+        # Create a surface for the shadow with alpha support
+        shadow_surface = pygame.Surface((shadow_width, shadow_height), pygame.SRCALPHA)
+        
+        # Draw the shadow as a dark oval
+        pygame.draw.ellipse(shadow_surface, (0, 0, 0, shadow_alpha), shadow_surface.get_rect())
+        
+        # Blit the shadow to the screen
+        screen.blit(shadow_surface, (shadow_x, shadow_y))

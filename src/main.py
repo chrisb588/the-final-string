@@ -753,7 +753,7 @@ class GameDemo:
             player_tile_y = int(player_y // 16)
             
             debug_info = [
-                f"Player: ({player_tile_x}, {player_tile_y}) | Pixel: ({int(self.player.get_position()[0])}, {int(self.player_y)})",
+                f"Player: ({player_tile_x}, {player_tile_y}) | Pixel: ({int(self.player.get_position()[0])}, {int(player_y)})",
                 f"Mouse: ({self.mouse_tile_x}, {self.mouse_tile_y}) | Screen: ({self.mouse_x}, {self.mouse_y})",
             ]
             
@@ -897,7 +897,7 @@ class GameDemo:
     def _draw_speed_debug(self):
         """Draw speed debug information"""
         font = pygame.font.Font(None, 24)
-        speed_text = f"Speed: {self.player_speed:.1f}"
+        speed_text = f"Speed: {self.player.speed:.1f}"
         
         # Render text with outline for visibility
         text_surface = font.render(speed_text, True, (255, 255, 255))
