@@ -18,6 +18,9 @@ class MenuOptionsState(BaseMenuState):
     def __init__(self, screen, terminal):
         super().__init__(screen, terminal)
         self.selected_item = 0
+        self.transitioning = False
+        self.transition_start = 0
+        self.transition_delay = 5000  # 5 seconds in milliseconds
         
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -82,7 +85,7 @@ class MenuOptionsState(BaseMenuState):
         if selection == "Play":
             # Clear terminal and show transition message
             self.terminal.clear()
-            self.terminal.add_line("Entering The Final String", color={
+            self.terminal.add_line("Running the-final-string.exe", color={
                 "The Final String": TERMINAL_YELLOW
             }, animate_dots=True)
             self.transition_start = pygame.time.get_ticks()
@@ -96,7 +99,16 @@ class MenuOptionsState(BaseMenuState):
             return STATE_MENU_CREDITS
         elif selection == "Exit":
             pygame.quit()
-            exit()
+            sys.exit()
+
+    def update(self):
+        """Handle transition timing"""
+        if self.transitioning:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.transition_start >= self.transition_delay:
+                self.transitioning = False
+                return STATE_PRELUDE
+        return None
             
     def render(self):
         self.screen.fill(BG_COLOR)

@@ -87,3 +87,13 @@ class Menu:
             elif next_state is not None:
                 self.change_state(next_state)  # Handle internal menu state changes
         return None
+    
+    def update(self):
+        """Update current menu state"""
+        if hasattr(self.states[self.current_state], 'update'):
+            next_state = self.states[self.current_state].update()
+            if next_state == STATE_PRELUDE:
+                return 'prelude'  # Return string for main game state change
+            elif next_state is not None:
+                self.change_state(next_state)  # Handle internal menu state changes
+        return None

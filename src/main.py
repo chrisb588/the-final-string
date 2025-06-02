@@ -4,7 +4,7 @@ import sys
 import pygame
 from pygame.locals import DOUBLEBUF, OPENGL
 from states.menu_substates.ui.crt_filter import CRTFilter
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from constants import SCREEN_WIDTH, SCREEN_HEIGHT, FONT_PATH
 
 # Load environment variables
 # load_dotenv()
@@ -18,26 +18,28 @@ from states.menu_state import Menu
 from states.game_state import GameDemo
 from states.prelude_state import PreludeState
 from states.end_state import EndState  # You'll need to create this
+from pyvidplayer2 import Video
 
 class Game:
     def __init__(self):
         pygame.init()
         self.is_fullscreen = False
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF | OPENGL)
-        pygame.display.set_caption("The Final String")
-        
-        # Store original resolution for toggling
         self.windowed_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
         
-        # Create game surface for regular rendering
-        self.game_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # Initialize both screen types
+        self.menu_screen = pygame.display.set_mode(self.windowed_size, DOUBLEBUF | OPENGL)
+        pygame.display.set_caption("The Final String")
+        
+        # Create surfaces
+        self.menu_surface = pygame.Surface(self.windowed_size)
+        self.prelude_surface = pygame.Surface(self.windowed_size)
         
         # Initialize CRT filter
         self.crt_filter = CRTFilter(SCREEN_WIDTH, SCREEN_HEIGHT)
-
-        # Initialize states with game_surface instead of screen
-        menu = Menu(self.game_surface)
-        prelude = PreludeState()
+        
+        # Initialize states
+        menu = Menu(self.menu_surface)
+        prelude = PreludeState(self.prelude_surface)
         end = EndState()
         
         self.states = {
@@ -49,6 +51,8 @@ class Game:
         self.current_state = 'menu'
         self.clock = pygame.time.Clock()
         self.running = True
+
+        self.vid1 = Video("assets/video/cutscenes/prelude.mp4")
 
     def toggle_fullscreen(self):
         """Toggle between fullscreen and windowed mode"""
@@ -77,12 +81,15 @@ class Game:
 
     def render_frame(self):
         """Handle the complete rendering pipeline"""
-        # First render state to game surface
-        if hasattr(self.states[self.current_state], 'render'):
+        if self.current_state == 'prelude':
+            # Video playback on regular display
+            pygame.time.wait(16)
+            self.states[self.current_state].render(self.screen)
+        else:
+            # Menu with CRT effect
+            self.menu_surface.fill((0, 0, 0))
             self.states[self.current_state].render()
-        
-        # Apply CRT filter effect
-        self.crt_filter.render(self.game_surface)
+            self.crt_filter.render(self.menu_surface)
         
         pygame.display.flip()
 
@@ -93,7 +100,10 @@ class Game:
 
         while self.running:
             # Clear the game surface
-            self.game_surface.fill((0, 0, 0))
+            if self.current_state == 'prelude':
+                self.prelude_surface.fill((0, 0, 0))
+            else: 
+                self.menu_surface.fill((0,0,0))
             
             # Handle global events
             for event in pygame.event.get():
@@ -127,26 +137,38 @@ class Game:
                     self.change_state(next_state)
            
             
-            self.render_frame()
+            
             self.clock.tick(60)
+            self.render_frame()
         
         # Exit final state
         if hasattr(self.states[self.current_state], 'exit'):
             self.states[self.current_state].exit()
         
+        self.vid1.close()
         pygame.quit()
         sys.exit()
 
     def change_state(self, new_state):
         """Handle state transitions"""
         if new_state in self.states:
-            # Call exit on current state if it exists
+            # Handle display mode changes
+            if new_state == 'prelude' and self.current_state == 'menu':
+                # Switch to regular display for video
+                pygame.display.quit()
+                pygame.display.init()
+                self.screen = pygame.display.set_mode(self.windowed_size)
+            elif new_state == 'menu' and self.current_state == 'prelude':
+                # Switch back to OpenGL for CRT effect
+                pygame.display.quit()
+                pygame.display.init()
+                self.screen = pygame.display.set_mode(self.windowed_size, DOUBLEBUF | OPENGL)
+            # ...rest of state change logic...
             if hasattr(self.states[self.current_state], 'exit'):
                 self.states[self.current_state].exit()
             
             self.current_state = new_state
             
-            # Call enter on new state if it exists
             if hasattr(self.states[self.current_state], 'enter'):
                 self.states[self.current_state].enter()
 
