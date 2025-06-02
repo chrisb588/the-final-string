@@ -5,10 +5,10 @@ from typing import Dict, Any, Set, Tuple, List
 from levels.manager import LayeredLevelManager
 from game_state import game_state
 from entities.interactables import interactable_manager
-from ui.password_ui import PasswordUI, MessageUI, RulesDisplayUI
-from ui.matrix_background import MatrixBackground
+from states.game.ui.ui_manager import UIManager
 from interactable_config import setup_level_interactables
 from entities.player import Player
+from states.game.ui.hud import HUD
 
 class GameDemo:
     """Demo showing the layered tileset renderer in action"""
@@ -18,17 +18,13 @@ class GameDemo:
         pygame.init()
         
         # Screen settings
-        self.windowed_width = 1024
-        self.windowed_height = 768
-        self.min_width = 1024
-        self.min_height = 768
+        self.screen_width = 1024
+        self.screen_height = 768
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         self.is_fullscreen = False
-        
-        # Initialize in windowed mode with resizable flag
-        self.screen_width = self.windowed_width
-        self.screen_height = self.windowed_height
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
         pygame.display.set_caption("Layered Tileset Demo")
+
+        self.windowed_size = (self.screen_width, self.screen_height)
         
         # Game settings
         self.fps = 60
@@ -39,13 +35,13 @@ class GameDemo:
         self.smooth_camera = True
         self.paused = False
         self.show_speed_debug = False
+        self.show_coordinates = False
         
         # Mouse tracking for debug coordinates
         self.mouse_x = 0
         self.mouse_y = 0
         self.mouse_tile_x = 0
         self.mouse_tile_y = 0
-        self.show_coordinates = False
         
         # Interactable creation mode
         self.creation_mode = False
@@ -76,17 +72,20 @@ class GameDemo:
         else:
             print("No levels found! Make sure your level files are in the correct directory.")
         
-        # UI components - Pass self (PasswordUI) to other UI elements for consistent styling
-        self.password_ui = PasswordUI(self.screen)
-        self.message_ui = MessageUI(self.screen, ui_manager=self.password_ui)
-        self.rules_ui = RulesDisplayUI(self.screen, ui_manager=self.password_ui)
+        self.ui_manager = UIManager(self.screen)
         
-        # Matrix background
-        self.matrix_background = MatrixBackground(
-            self.screen_width, 
-            self.screen_height, 
-            gif_path="assets/images/matrix_background.gif"  # You can change this path
+        self.ui_manager.set_debug_flags(
+            show_debug=self.show_debug,
+            show_coordinates=self.show_coordinates,
+            show_speed_debug=self.show_speed_debug
         )
+        
+        # # Matrix background
+        # self.matrix_background = MatrixBackground(
+        #     self.screen_width, 
+        #     self.screen_height, 
+        #     gif_path="assets/images/matrix_background.gif"  # You can change this path
+        # )
         
         # Level transition persistence
         self.last_successful_password = ""
@@ -97,75 +96,30 @@ class GameDemo:
         
         # Setup programmatic interactables from configuration
         setup_level_interactables()
-    
+
     def toggle_fullscreen(self):
         """Toggle between fullscreen and windowed mode"""
         self.is_fullscreen = not self.is_fullscreen
-        
         if self.is_fullscreen:
-            # Get the current display resolution
-            info = pygame.display.Info()
-            self.screen_width = info.current_w
-            self.screen_height = info.current_h
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
-            self.message_ui.show_message("Switched to fullscreen (F11 to toggle)", 2000)
+            # Get the current display info
+            display_info = pygame.display.Info()
+            fullscreen_size = (display_info.current_w, display_info.current_h)
+            
+            # Switch to fullscreen
+            self.screen = pygame.display.set_mode(fullscreen_size, pygame.FULLSCREEN)
+            self.screen_width, self.screen_height = fullscreen_size
         else:
-            # Return to windowed mode with resizable flag
-            self.screen_width = self.windowed_width
-            self.screen_height = self.windowed_height
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
-            self.message_ui.show_message("Switched to windowed mode (F11 to toggle, drag to resize)", 2000)
+            # Switch back to windowed mode
+            self.screen = pygame.display.set_mode(self.windowed_size)
+            self.screen_width, self.screen_height = self.windowed_size
         
-        self._update_components_for_new_screen_size()
-    
-    def handle_resize(self, new_width: int, new_height: int):
-        """Handle window resize event"""
-        # Enforce minimum size
-        new_width = max(new_width, self.min_width)
-        new_height = max(new_height, self.min_height)
+        # Update UI components that depend on screen size
+        if hasattr(self.ui_manager, 'dialogue_box'):
+            self.ui_manager.dialogue_box._init_dimensions()
         
-        # Update screen size
-        self.screen_width = new_width
-        self.screen_height = new_height
-        
-        # Recreate the screen surface with new size
-        if self.is_fullscreen:
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
-        else:
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.RESIZABLE)
-            # Update windowed size memory if not in fullscreen
-            self.windowed_width = new_width
-            self.windowed_height = new_height
-        
-        self._update_components_for_new_screen_size()
-    
-    def _update_components_for_new_screen_size(self):
-        """Update all components when screen size changes"""
-        # Update UI components to use new screen size
-        self.password_ui.screen = self.screen
-        self.message_ui.screen = self.screen
-        self.rules_ui.screen = self.screen
-        
-        # Update level manager screen and dimensions
-        self.level_manager.screen = self.screen
-        self.level_manager.screen_width = self.screen_width
-        self.level_manager.screen_height = self.screen_height
-        
-        # Update camera dimensions and recalculate dependent values
-        camera = self.level_manager.camera
-        camera.screen_width = self.screen_width
-        camera.screen_height = self.screen_height
-        camera.half_screen_width = self.screen_width // 2
-        camera.half_screen_height = self.screen_height // 2
-        
-        # Update matrix background for new resolution
-        self.matrix_background = MatrixBackground(
-            self.screen_width, 
-            self.screen_height, 
-            gif_path="assets/images/matrix_background.gif"
-        )
-        
-        print(f"Screen size updated to {self.screen_width}x{self.screen_height}")
+        # Show message about the change
+        mode = "Fullscreen" if self.is_fullscreen else "Windowed"
+        self.ui_manager.show_popup(f"Switched to {mode} mode")
     
     def handle_events(self):
         """Handle input events"""
@@ -181,17 +135,9 @@ class GameDemo:
             ui_handled = False
             
             # Let password UI handle events first
-            if self.password_ui.handle_event(event):
-                ui_handled = True
-            
-            # Let rules display UI handle events
-            if not ui_handled and self.rules_ui.handle_event(event):
-                ui_handled = True
-            
-            # If UI handled the event, skip the rest of the processing for this event
-            if ui_handled:
+            if self.ui_manager.handle_event(event):
                 continue
-            
+
             elif event.type == pygame.MOUSEMOTION:
                 # Update mouse position for debug coordinates
                 self.mouse_x, self.mouse_y = event.pos
@@ -209,6 +155,12 @@ class GameDemo:
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
+
+                # Add fullscreen toggle (Alt + Enter or F11)
+                elif (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or \
+                (event.key == pygame.K_F11):
+                    self.toggle_fullscreen()
+                    continue
                 
                 elif event.key == pygame.K_p or event.key == pygame.K_LEFT:
                     if self.level_manager.load_previous_level():
@@ -235,8 +187,7 @@ class GameDemo:
                     self.smooth_camera = not self.smooth_camera
                 
                 elif event.key == pygame.K_F3:
-                    # Toggle coordinate display
-                    self.show_coordinates = not self.show_coordinates
+                    self.ui_manager.hud.show_coordinates = not self.ui_manager.hud.show_coordinates
                 
                 elif event.key == pygame.K_F4:
                     # Toggle creation mode
@@ -244,7 +195,7 @@ class GameDemo:
                     if not self.creation_mode:
                         self.selected_tiles.clear()
                         self.delete_mode = False
-                    self.message_ui.show_message(
+                    self.ui_manager.show_message(
                         f"Creation mode: {'ON' if self.creation_mode else 'OFF'} ({self.creation_type})", 2000
                     )
                 
@@ -264,14 +215,10 @@ class GameDemo:
                     self.selected_tiles.clear()
                     
                     mode_text = "DELETE" if self.delete_mode else self.creation_type.upper()
-                    self.message_ui.show_message(f"Creation mode: {mode_text}", 2000)
+                    self.ui_manager.show_message(f"Creation mode: {mode_text}", 2000)
                 
                 elif event.key == pygame.K_F5:
-                    # Toggle speed debug
-                    self.show_speed_debug = not self.show_speed_debug
-                    self.message_ui.show_message(
-                        f"Speed debug: {'ON' if self.show_speed_debug else 'OFF'}", 2000
-                    )
+                    self.ui_manager.hud.show_speed_debug = not self.ui_manager.hud.show_speed_debug
                 
                 elif event.key == pygame.K_SPACE:
                     self.paused = not self.paused
@@ -280,21 +227,17 @@ class GameDemo:
                 elif event.key == pygame.K_LEFTBRACKET and self.show_speed_debug:
                     # Decrease speed with [
                     self.player.adjust_speed(-self.player.speed_increment)
-                    self.message_ui.show_message(f"Speed: {self.player.speed:.1f}", 1000)
+                    self.ui_manager.show_message(f"Speed: {self.player.speed:.1f}", 1000)
 
                 elif event.key == pygame.K_RIGHTBRACKET and self.show_speed_debug:
                     # Increase speed with ]
                     self.player.adjust_speed(self.player.speed_increment)
-                    self.message_ui.show_message(f"Speed: {self.player.speed:.1f}", 1000)
+                    self.ui_manager.show_message(f"Speed: {self.player.speed:.1f}", 1000)
 
                 elif event.key == pygame.K_BACKSLASH and self.show_speed_debug:
                     # Reset speed to default with \
                     self.player.reset_speed()
-                    self.message_ui.show_message(f"Speed reset to: {self.player.speed:.1f}", 1000)
-                
-                elif event.key == pygame.K_F11:
-                    # Toggle fullscreen
-                    self.toggle_fullscreen()
+                    self.ui_manager.show_message(f"Speed reset to: {self.player.speed:.1f}", 1000)
                 
                 # Zoom controls
                 elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
@@ -330,40 +273,40 @@ class GameDemo:
                 elif event.key == pygame.K_c:
                     # Clear rules for testing
                     game_state.clear_rules_for_testing()
-                    self.message_ui.show_message("Rules cleared for testing!", 2000)
+                    self.ui_manager.show_message("Rules cleared for testing!", 2000)
                 
-                elif event.key == pygame.K_i and self.show_coordinates:
+                elif event.key == pygame.K_i and self.ui_manager.hud.show_coordinates:
                     # Show programmatic interactables info for current level
                     self._show_interactables_info()
                 
-                elif event.key == pygame.K_x and self.show_coordinates:
+                elif event.key == pygame.K_x and self.ui_manager.hud.show_coordinates:
                     # Copy current mouse coordinates to console
                     self._copy_mouse_coordinates()
                 
-                elif event.key == pygame.K_DELETE and self.show_coordinates:
+                elif event.key == pygame.K_DELETE and self.ui_manager.hud.show_coordinates:
                     # Clean up duplicate interactables
                     self._clean_duplicate_interactables()
                 
-                elif event.key == pygame.K_z and self.show_coordinates:
+                elif event.key == pygame.K_z and self.ui_manager.hud.show_coordinates:
                     # Force reload level from file (useful for testing saved interactables)
                     current_name = self.level_manager.current_level_name
                     if current_name:
                         if self.level_manager.load_level(current_name):
                             self.load_level_interactables()
                             print(f"Force reloaded level '{current_name}' from file")
-                            self.message_ui.show_message(f"Reloaded '{current_name}' from file", 2000)
+                            self.ui_manager.show_message(f"Reloaded '{current_name}' from file", 2000)
                         else:
                             print(f"Failed to reload level '{current_name}' from file")
-                            self.message_ui.show_message(f"Failed to reload '{current_name}'", 2000)
+                            self.ui_manager.show_message(f"Failed to reload '{current_name}'", 2000)
                     else:
-                        self.message_ui.show_message("No level loaded", 2000)
+                        self.ui_manager.show_message("No level loaded", 2000)
                 
                 elif event.key == pygame.K_RETURN and self.creation_mode:
                     # Create interactable from selected tiles and save to JSON (not in delete mode)
                     if not self.delete_mode:
                         self._create_and_save_interactable()
                     else:
-                        self.message_ui.show_message("Cannot create in delete mode - use TAB to switch modes", 2000)
+                        self.ui_manager.show_message("Cannot create in delete mode - use TAB to switch modes", 2000)
         
         return True
     
@@ -411,9 +354,9 @@ class GameDemo:
                     if current_name:
                         self.level_manager.load_level(current_name)
                         self.load_level_interactables()
-                    self.message_ui.show_message(f"Deleted interactable at ({self.mouse_tile_x}, {self.mouse_tile_y})", 2000)
+                    self.ui_manager.show_message(f"Deleted interactable at ({self.mouse_tile_x}, {self.mouse_tile_y})", 2000)
                 else:
-                    self.message_ui.show_message("No interactable found at this position", 1500)
+                    self.ui_manager.show_message("No interactable found at this position", 1500)
             else:
                 # Add/remove tile from selection
                 tile_coord = (self.mouse_tile_x, self.mouse_tile_y)
@@ -434,12 +377,12 @@ class GameDemo:
                     self.handle_interaction(result)
             except Exception as e:
                 print(f"Error during interaction: {e}")
-                self.message_ui.show_message("Error during interaction", 2000)
+                self.ui_manager.show_message("Error during interaction", 2000)
     
     def _create_and_save_interactable(self):
         """Create interactable from selected tiles and save permanently to JSON"""
         if not self.selected_tiles:
-            self.message_ui.show_message("No tiles selected!", 2000)
+            self.ui_manager.show_message("No tiles selected!", 2000)
             return
         
         if self.creation_type == "door":
@@ -464,11 +407,11 @@ class GameDemo:
                     else:
                         print(f"Failed to reload level '{current_name}' from file")
                 
-                self.message_ui.show_message(
+                self.ui_manager.show_message(
                     f"Created {success_count} door(s)!", 3000
                 )
             else:
-                self.message_ui.show_message("Failed to create doors!", 2000)
+                self.ui_manager.show_message("Failed to create doors!", 2000)
         else:
             # Create note interactables (existing functionality)
             success = interactable_manager.save_interactables_to_level_file(
@@ -487,11 +430,11 @@ class GameDemo:
                     else:
                         print(f"Failed to reload level '{current_name}' from file")
                 
-                self.message_ui.show_message(
+                self.ui_manager.show_message(
                     f"Saved {len(self.selected_tiles)} tiles as permanent interactables!", 3000
                 )
             else:
-                self.message_ui.show_message("Failed to save interactables!", 2000)
+                self.ui_manager.show_message("Failed to save interactables!", 2000)
         
         # Clear selection
         self.selected_tiles.clear()
@@ -557,184 +500,11 @@ class GameDemo:
         angle = math.atan2(dy, dx)
         
         return angle
-    
-    def _draw_compass(self):
-        """Draw a 2D pixelated circular compass with decorations"""
-        compass_area_size = 64  # Overall square area the compass will occupy
-        pixel_scale = 2         # Each 'pixel' of our art will be pixel_scale x pixel_scale screen pixels
-        
-        base_compass_x = self.screen_width - compass_area_size - 15 # Adjusted for new size
-        base_compass_y = 85  # Below zoom indicator, adjusted
-        if self.show_speed_debug:
-            base_compass_y += 35 # Adjusted
-
-        center_x = base_compass_x + compass_area_size // 2
-        center_y = base_compass_y + compass_area_size // 2
-
-        # --- Draw Pixelated Circular Compass Body ---
-        radius_pixels = 15  # Radius of the circle in 'pixel' units
-        
-        # Colors
-        body_color_dark = (30, 30, 30)    # Dark core
-        body_color_mid = (50, 50, 50)      # Main body
-        body_color_light = (80, 80, 80)    # Highlight/border accent
-        border_color = (120, 120, 120)     # Outer border
-
-        # Draw the circle pixel by pixel
-        for y_offset_px in range(-radius_pixels -1, radius_pixels + 2):
-            for x_offset_px in range(-radius_pixels -1, radius_pixels + 2):
-                dist_sq = x_offset_px**2 + y_offset_px**2
-                px = center_x + x_offset_px * pixel_scale
-                py = center_y + y_offset_px * pixel_scale
-
-                # Outer Border (slightly thicker circle)
-                if radius_pixels**2 <= dist_sq < (radius_pixels + 1.5)**2:
-                    pygame.draw.rect(self.screen, border_color, (px, py, pixel_scale, pixel_scale))
-                # Main Body (filled circle)
-                elif dist_sq < radius_pixels**2:
-                    # Basic shading: darker towards top-left, lighter bottom-right (subtle)
-                    if x_offset_px < -radius_pixels * 0.5 and y_offset_px < -radius_pixels * 0.5:
-                        color_to_use = body_color_dark
-                    elif x_offset_px > radius_pixels * 0.5 and y_offset_px > radius_pixels * 0.5:
-                        color_to_use = body_color_light
-                    else:
-                        color_to_use = body_color_mid
-                    pygame.draw.rect(self.screen, color_to_use, (px, py, pixel_scale, pixel_scale))
-        
-        # Decorative inner ring/crosshairs (optional)
-        inner_ring_color = (70, 70, 70)
-        for i_px in range(-radius_pixels, radius_pixels + 1):
-            # Horizontal line
-            if abs(i_px * pixel_scale) < radius_pixels * pixel_scale * 0.7:
-                 pygame.draw.rect(self.screen, inner_ring_color, (center_x + i_px * pixel_scale - pixel_scale//2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
-            # Vertical line
-            if abs(i_px * pixel_scale) < radius_pixels * pixel_scale * 0.7:
-                 pygame.draw.rect(self.screen, inner_ring_color, (center_x - pixel_scale//2, center_y + i_px * pixel_scale - pixel_scale//2, pixel_scale, pixel_scale))
-
-
-        nearest_door = self._get_nearest_door_position()
-
-        if nearest_door:
-            angle = self._calculate_direction_to_door(nearest_door)
-            needle_color_main = (255, 50, 50) # Bright Red
-            needle_color_accent = (200, 0, 0) # Darker Red for accent/shadow
-            
-            # --- Updated Needle Tail Colors ---
-            needle_tail_color_main = (220, 220, 220)  # Main light grey/white
-            needle_tail_color_accent = (170, 170, 170) # Slightly darker grey for accent
-            
-            needle_front_len_px = 10 # in 'pixels'
-            needle_tail_len_px = 6 # Slightly longer tail for better balance
-
-            # Draw main part (front) - thicker
-            for i in range(needle_front_len_px):
-                dist = i * pixel_scale
-                px = center_x + math.cos(angle) * dist
-                py = center_y + math.sin(angle) * dist
-                pygame.draw.rect(self.screen, needle_color_accent, (px - pixel_scale + pixel_scale//2, py - pixel_scale + pixel_scale//2, pixel_scale*2, pixel_scale*2))
-                pygame.draw.rect(self.screen, needle_color_main, (px - pixel_scale, py - pixel_scale, pixel_scale*2, pixel_scale*2))
-
-            # Arrowhead (more defined)
-            tip_dist = needle_front_len_px * pixel_scale
-            tip_x = center_x + math.cos(angle) * tip_dist
-            tip_y = center_y + math.sin(angle) * tip_dist
-
-            arrowhead_size_px = 3 
-            for i_arrow in range(-arrowhead_size_px // 2 +1 , arrowhead_size_px // 2 + 2):
-                offset_angle = angle + math.pi / 2 
-                offset_dist = i_arrow * pixel_scale
-                base_ax = center_x + math.cos(angle) * (tip_dist - 2*pixel_scale) + math.cos(offset_angle) * offset_dist
-                base_ay = center_y + math.sin(angle) * (tip_dist - 2*pixel_scale) + math.sin(offset_angle) * offset_dist
-                # Arrowhead accent (draw first)
-                pygame.draw.rect(self.screen, needle_color_accent, (base_ax-pixel_scale+pixel_scale//2, base_ay-pixel_scale+pixel_scale//2, pixel_scale*2, pixel_scale*2))
-                pygame.draw.rect(self.screen, needle_color_main, (base_ax-pixel_scale, base_ay-pixel_scale, pixel_scale*2, pixel_scale*2))
-            # Tip of arrowhead (draw last to be on top)
-            pygame.draw.rect(self.screen, needle_color_accent, (tip_x-pixel_scale+pixel_scale//2, tip_y-pixel_scale+pixel_scale//2, pixel_scale*2, pixel_scale*2)) 
-            pygame.draw.rect(self.screen, needle_color_main, (tip_x-pixel_scale, tip_y-pixel_scale, pixel_scale*2, pixel_scale*2))
-
-            # --- Draw Improved Needle Tail ---
-            # Tail will be a 2-pixel wide rectangle with an accent
-            for i in range(1, needle_tail_len_px + 1):
-                dist = i * pixel_scale
-                # Calculate base position for this segment of the tail
-                base_tail_x = center_x + math.cos(angle + math.pi) * dist
-                base_tail_y = center_y + math.sin(angle + math.pi) * dist
-
-                # Draw the two main pixels for width
-                # Pixel 1 (slightly to one side of the center line)
-                px1 = base_tail_x + math.cos(angle + math.pi/2) * (pixel_scale / 2)
-                py1 = base_tail_y + math.sin(angle + math.pi/2) * (pixel_scale / 2)
-                pygame.draw.rect(self.screen, needle_tail_color_main, (px1 - pixel_scale//2, py1 - pixel_scale//2, pixel_scale, pixel_scale))
-                
-                # Pixel 2 (slightly to the other side)
-                px2 = base_tail_x - math.cos(angle + math.pi/2) * (pixel_scale / 2)
-                py2 = base_tail_y - math.sin(angle + math.pi/2) * (pixel_scale / 2)
-                pygame.draw.rect(self.screen, needle_tail_color_main, (px2 - pixel_scale//2, py2 - pixel_scale//2, pixel_scale, pixel_scale))
-                
-                # Add an accent pixel in the middle of the two, slightly offset for depth
-                if i > 1 : # Don't put accent right at the pivot
-                    accent_tail_x = base_tail_x + pixel_scale//4 # Offset for accent
-                    accent_tail_y = base_tail_y + pixel_scale//4 # Offset for accent
-                    pygame.draw.rect(self.screen, needle_tail_color_accent, (accent_tail_x - pixel_scale//2, accent_tail_y - pixel_scale//2, pixel_scale, pixel_scale))
-
-            # Center Pivot (more decorative)
-            pygame.draw.rect(self.screen, (80, 80, 80), (center_x - pixel_scale, center_y - pixel_scale, pixel_scale*2, pixel_scale*2))
-            pygame.draw.rect(self.screen, (255,255,255), (center_x - pixel_scale//2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
-            
-            font = pygame.font.Font(None, 18)
-            label_text = "DOOR"
-            label_surface = font.render(label_text, True, (230, 230, 230))
-            label_rect = label_surface.get_rect(centerx=center_x, y=base_compass_y + compass_area_size + 3)
-            outline_surface = font.render(label_text, True, (0,0,0))
-            self.screen.blit(outline_surface, (label_rect.x + 1, label_rect.y + 1))
-            self.screen.blit(label_surface, label_rect)
-
-        else:
-            # --- Default Pixelated Circular Compass (No Doors) ---
-            dir_color_cardinal = (200, 200, 200)
-            dir_color_inter = (140, 140, 140)
-            marker_len_px = 3 # Length of cardinal markers from edge
-
-            # Cardinal direction markers (lines from the edge inwards)
-            for i in range(marker_len_px):
-                dist_from_edge = i * pixel_scale
-                # N
-                pygame.draw.rect(self.screen, dir_color_cardinal, (center_x - pixel_scale//2, base_compass_y + (radius_pixels - 12)*pixel_scale + dist_from_edge, pixel_scale, pixel_scale))
-                # S
-                pygame.draw.rect(self.screen, dir_color_cardinal, (center_x - pixel_scale//2, base_compass_y + (radius_pixels + 10)*pixel_scale - dist_from_edge - pixel_scale*2, pixel_scale, pixel_scale))
-                # E
-                pygame.draw.rect(self.screen, dir_color_cardinal, (base_compass_x + (radius_pixels + 10)*pixel_scale - dist_from_edge - pixel_scale*2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
-                # W
-                pygame.draw.rect(self.screen, dir_color_cardinal, (base_compass_x + (radius_pixels - 12)*pixel_scale + dist_from_edge, center_y - pixel_scale//2, pixel_scale, pixel_scale))
-
-            # Intercardinal markers (single pixels)
-            inter_dist_factor = 0.707 * (radius_pixels -1) # approx sqrt(2)/2 for 45 deg
-            inter_marker_positions = [
-                (center_x + inter_dist_factor * pixel_scale, center_y - inter_dist_factor * pixel_scale),
-                (center_x + inter_dist_factor * pixel_scale, center_y + inter_dist_factor * pixel_scale),
-                (center_x - inter_dist_factor * pixel_scale, center_y + inter_dist_factor * pixel_scale),
-                (center_x - inter_dist_factor * pixel_scale, center_y - inter_dist_factor * pixel_scale),
-            ]
-            for pos_x, pos_y in inter_marker_positions:
-                 pygame.draw.rect(self.screen, dir_color_inter, (pos_x - pixel_scale//2, pos_y - pixel_scale//2, pixel_scale, pixel_scale))
-
-            # Center Pivot
-            pygame.draw.rect(self.screen, (80, 80, 80), (center_x - pixel_scale, center_y - pixel_scale, pixel_scale*2, pixel_scale*2))
-            pygame.draw.rect(self.screen, (255,255,255), (center_x - pixel_scale//2, center_y - pixel_scale//2, pixel_scale, pixel_scale))
-
-            font = pygame.font.Font(None, 18)
-            label_text = "COMPASS"
-            label_surface = font.render(label_text, True, (180, 180, 180))
-            label_rect = label_surface.get_rect(centerx=center_x, y=base_compass_y + compass_area_size + 3)
-            outline_surface = font.render(label_text, True, (0,0,0))
-            self.screen.blit(outline_surface, (label_rect.x + 1, label_rect.y + 1))
-            self.screen.blit(label_surface, label_rect)
             
     def update(self):
         """Update game state"""
-        if self.paused or self.password_ui.visible:
-            self.message_ui.update()
-            self.matrix_background.update()
+        if self.paused or self.ui_manager.password_ui.visible or self.ui_manager.dialogue_box.is_active:
+            self.ui_manager.update(self.clock.get_time() / 1000.0)
             return
         
         # Handle player movement
@@ -747,12 +517,11 @@ class GameDemo:
             player_x, player_y,
             smooth=self.smooth_camera
         )
+
+        self.ui_manager.compass.update_position()
         
-        # Update UI components
-        self.message_ui.update()
-        
-        # Update matrix background animation
-        self.matrix_background.update()
+        # Update UI manager
+        self.ui_manager.update(self.clock.get_time() / 1000.0)
         
         # Check for nearby interactables
         self.check_nearby_interactables()
@@ -764,43 +533,43 @@ class GameDemo:
         
         # Render level with layered sprites
         self.level_manager.render_level(debug_info=self.show_debug)
-        
-        # Always draw proximity hints for nearby interactables (even when F3 is off)
+
         self._draw_proximity_hints()
-        
-        # Draw existing interactables debug outlines when coordinates are shown
         if self.show_coordinates:
             self._draw_existing_interactables()
-        
-        # Draw selected tiles in creation mode
+
+        game_data = {
+            'player_speed': self.player.speed,
+            'camera_zoom': self.level_manager.camera.zoom,
+            'nearest_door': self._get_nearest_door_position(),
+            'door_angle': self._calculate_direction_to_door(self._get_nearest_door_position()),
+            'current_rules': self.current_level_rules,
+            'total_rules': (
+                interactable_manager.level_metadata.get("rule_count", 0) 
+                if hasattr(interactable_manager, 'level_metadata') 
+                else len(self.current_level_rules)
+            ),
+            'paused': self.paused,
+            'player_pos': self.player.get_position(),
+            'mouse_pos': (self.mouse_x, self.mouse_y),
+            'fps': self.clock.get_fps(),
+            'debug_info': {
+                'mouse_tile': (self.mouse_tile_x, self.mouse_tile_y),
+                'creation_mode': self.creation_mode,
+                'creation_type': self.creation_type,
+                'selected_tiles': self.selected_tiles
+            }
+        }
+
         if self.creation_mode:
             self._draw_selected_tiles()
-        
+
         # Render player
         self.player.render(self.screen, self.level_manager.camera)
-        
-        # Draw coordinate debug info
-        if self.show_coordinates:
-            self._draw_coordinate_debug()
-        
-        # Draw speed debug info
-        if self.show_speed_debug:
-            self._draw_speed_debug()
-        
-        # Draw zoom level indicator
-        self._draw_zoom_indicator()
-        
-        # Draw compass
-        self._draw_compass()
-        
-        # Draw control instructions
-        self._draw_instructions()
-        
-        # Render UI components
-        self.rules_ui.render(self.current_level_rules)
-        self.message_ui.render()
-        self.password_ui.render()
-        
+
+        # Render UI
+        self.ui_manager.render(game_data)
+
         # Update display
         pygame.display.flip()
     
@@ -978,91 +747,6 @@ class GameDemo:
         
         return groups
     
-    def _draw_speed_debug(self):
-        """Draw speed debug information"""
-        font = pygame.font.Font(None, 24)
-        speed_text = f"Speed: {self.player.speed:.1f}"
-        
-        # Render text with outline for visibility
-        text_surface = font.render(speed_text, True, (255, 255, 255))
-        outline_surface = font.render(speed_text, True, (0, 0, 0))
-        
-        # Position in top-right corner
-        text_width = text_surface.get_width()
-        x_pos = self.screen_width - text_width - 20
-        y_pos = 20
-        
-        # Draw outline and text
-        self.screen.blit(outline_surface, (x_pos + 1, y_pos + 1))
-        self.screen.blit(text_surface, (x_pos, y_pos))
-    
-    def _draw_zoom_indicator(self):
-        """Draw zoom level indicator in top-right corner"""
-        font = pygame.font.Font(None, 32)
-        zoom = self.level_manager.camera.zoom
-        zoom_text = f"Zoom: {zoom:.1f}x"
-        
-        # Render text with outline for visibility
-        text_surface = font.render(zoom_text, True, (255, 255, 255))
-        outline_surface = font.render(zoom_text, True, (0, 0, 0))
-        
-        # Position in top-right corner (adjust if speed debug is shown)
-        text_width = text_surface.get_width()
-        x_pos = self.screen_width - text_width - 20
-        y_pos = 50 if self.show_speed_debug else 20  # Move down if speed debug is shown
-        
-        # Draw outline and text
-        self.screen.blit(outline_surface, (x_pos + 1, y_pos + 1))
-        self.screen.blit(text_surface, (x_pos, y_pos))
-    
-    def _draw_instructions(self):
-        """Draw control instructions on screen"""
-        font = pygame.font.Font(None, 20)
-        instructions = [
-            "WASD/Arrow Keys: Move player",
-            "Shift + Movement: Run (2x speed)",
-            "N/Right: Next level",
-            "P/Left: Previous level", 
-            "R: Reload level",
-            "+/=: Zoom in",
-            "-: Zoom out", 
-            "0: Reset zoom",
-            "F1: Toggle debug info",
-            "F2: Toggle smooth camera",
-            "F3: Toggle coordinates",
-            "F4: Toggle creation mode",
-            "F5: Toggle speed debug",
-            "F11: Toggle fullscreen",
-            "Drag window borders: Resize window",
-            "TAB: Switch note/door/delete mode (in creation mode)",
-            "Space: Pause",
-            "1-3: Toggle layers (demo)",
-            "E: Interact with objects",
-            "C: Clear rules for testing",
-            "I: Show interactables info (when coords shown)",
-            "X: Copy mouse coords to console (when coords shown)",
-            "Z: Force reload level from file (when coords shown)",
-            "Delete: Clean up duplicate interactables (when coords shown)",
-            "[ / ]: Decrease/Increase speed (when speed debug on)",
-            "\\: Reset speed to default (when speed debug on)",
-            "ESC: Quit",
-            "",
-            "COMPASS: Points to nearest door (top-right)",
-            "- Red arrow when doors exist",
-            "- N/S/E/W when no doors"
-        ]
-        
-        y_pos = self.screen_height - len(instructions) * 22 - 10
-        
-        for instruction in instructions:
-            # Draw with outline for visibility
-            text_surface = font.render(instruction, True, (255, 255, 255))
-            outline_surface = font.render(instruction, True, (0, 0, 0))
-            
-            self.screen.blit(outline_surface, (11, y_pos + 1))
-            self.screen.blit(text_surface, (10, y_pos))
-            y_pos += 22
-    
     def load_level_interactables(self):
         """Load interactables for the current level"""
         if self.level_manager.current_level:
@@ -1150,21 +834,19 @@ class GameDemo:
                 # Also add to current level rules
                 if rule not in self.current_level_rules:
                     self.current_level_rules.append(rule)
-                # Use custom message if available, otherwise default format
-                display_message = message if message else f"Rule collected: {rule}"
-                self.message_ui.show_message(display_message, 3000)
+                self.ui_manager.show_message(f"Rule collected: {rule}", 3000)
             
         elif interaction_type == "note_already_collected":
             message = result.get("message", "Already read this note.")
-            self.message_ui.show_message(message, 2000)
+            self.ui_manager.show_message(message, 2000)
             
         elif interaction_type == "empty_interactable":
             message = result.get("message", "There's nothing here.")
-            self.message_ui.show_message(message, 2000)
+            self.ui_manager.show_message(message, 2000)
             
         elif interaction_type == "door_locked":
             message = result.get("message", "Door is locked.")
-            self.message_ui.show_message(message, 3000)
+            self.ui_manager.show_message(message, 3000)
             
         elif interaction_type == "door_password_prompt":
             # Show password UI with preserved password if available
@@ -1178,17 +860,17 @@ class GameDemo:
                 if rule not in combined_collected_rules:
                     combined_collected_rules.append(rule)
             
-            self.password_ui.show(rules, door, self.handle_password_result, combined_collected_rules, self.last_successful_password, self.handle_password_ui_close)
+            self.ui_manager.show(rules, door, self.handle_password_result, combined_collected_rules, self.last_successful_password, self.handle_password_ui_close)
             
         elif interaction_type == "door_open":
             message = result.get("message", "Door is open.")
-            self.message_ui.show_message(message, 2000)
+            self.ui_manager.show_message(message, 2000)
             
         elif interaction_type == "level_transition":
             # Handle level transition
             next_level = result.get("next_level")
             message = result.get("message", f"Entering {next_level}...")
-            self.message_ui.show_message(message, 2000)
+            self.messageui.show_message(message, 2000)
             
             if next_level:
                 self.transition_to_level(next_level)
@@ -1200,14 +882,14 @@ class GameDemo:
             if result.get("type") == "level_transition":
                 next_level = result.get("next_level")
                 message = result.get("message", f"Entering {next_level}...")
-                self.message_ui.show_message(message, 2000)
+                self.ui_manager.show_message(message, 2000)
                 
                 # Store the successful password and set transition flag
-                if self.password_ui.password_input:
-                    self.last_successful_password = self.password_ui.password_input.text
+                if self.passwordui.password_input:
+                    self.last_successful_password = self.passwordui.password_input.text
                 
                 # Accumulate rules from current level (avoid duplicates)
-                current_level_rules = self.password_ui.rules if self.password_ui.rules else []
+                current_level_rules = self.ui_manager.rules if self.ui_manager.rules else []
                 for rule in current_level_rules:
                     if rule != "????" and rule not in self.accumulated_rules:
                         self.accumulated_rules.append(rule)
@@ -1222,10 +904,10 @@ class GameDemo:
                 if next_level:
                     self.transition_to_level(next_level)
             else:
-                self.message_ui.show_message("Door opened successfully!", 3000)
+                self.ui_manager.show_message("Door opened successfully!", 3000)
         else:
             message = result.get("message", "Password incorrect.")
-            self.message_ui.show_message(message, 3000)
+            self.ui_manager.show_message(message, 3000)
     
     def _draw_existing_interactables(self):
         """Draw outlines around existing interactable tiles (debug only)"""
@@ -1308,7 +990,7 @@ class GameDemo:
     def _show_interactables_info(self):
         """Show information about programmatic interactables for the current level"""
         if not self.level_manager.current_level:
-            self.message_ui.show_message("No level loaded!", 2000)
+            self.ui_manager.show_message("No level loaded!", 2000)
             return
         
         level_name = self.level_manager.current_level_name or "unknown"
@@ -1316,7 +998,7 @@ class GameDemo:
         
         if level_name in programmatic and programmatic[level_name]:
             count = len(programmatic[level_name])
-            self.message_ui.show_message(f"Level '{level_name}' has {count} programmatic interactables", 3000)
+            self.ui_manager.show_message(f"Level '{level_name}' has {count} programmatic interactables", 3000)
             
             # Print detailed info to console
             print(f"\n=== Programmatic Interactables for '{level_name}' ===")
@@ -1329,7 +1011,7 @@ class GameDemo:
                     print(f"   Required Rules: {interactable['required_rules']}")
                 print()
         else:
-            self.message_ui.show_message(f"No programmatic interactables for '{level_name}'", 2000)
+            self.ui_manager.show_message(f"No programmatic interactables for '{level_name}'", 2000)
     
     def _copy_mouse_coordinates(self):
         """Print current mouse coordinates in a format ready for code"""
@@ -1362,10 +1044,10 @@ class GameDemo:
             print(f'    "Your multi-tile rule text here"')
             print(f')')
             
-            self.message_ui.show_message(f"Coordinates ({self.mouse_tile_x}, {self.mouse_tile_y}) printed to console!", 2000)
+            self.ui_manager.show_message(f"Coordinates ({self.mouse_tile_x}, {self.mouse_tile_y}) printed to console!", 2000)
         except Exception as e:
             print(f"Error copying mouse coordinates: {e}")
-            self.message_ui.show_message("Error copying coordinates", 2000)
+            self.ui_manager.show_message("Error copying coordinates", 2000)
     
     def _clean_duplicate_interactables(self):
         """Clean up duplicate interactables"""
@@ -1378,9 +1060,9 @@ class GameDemo:
                 self.level_manager.load_level(current_name)
                 self.load_level_interactables()
             
-            self.message_ui.show_message("Duplicate interactables cleaned up!", 3000)
+            self.ui_manager.show_message("Duplicate interactables cleaned up!", 3000)
         else:
-            self.message_ui.show_message("Failed to clean up duplicates!", 2000)
+            self.ui_manager.show_message("Failed to clean up duplicates!", 2000)
     
     def transition_to_level(self, level_name: str):
         """Transition to a new level"""
