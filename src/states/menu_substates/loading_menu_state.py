@@ -3,8 +3,8 @@ from constants import *
 import pygame
 
 class LoadingMenuState(BaseMenuState):
-    def __init__(self, screen, terminal, crt_filter):
-        super().__init__(screen, terminal, crt_filter)
+    def __init__(self, screen, terminal):
+        super().__init__(screen, terminal)
         self.current_stage = -1
         self.stage_start_time = pygame.time.get_ticks()
         # Start first stage immediately
@@ -50,7 +50,7 @@ class LoadingMenuState(BaseMenuState):
 
     def render(self):
         """Render the loading state"""
-        self.surface.fill(BG_COLOR)
-        self.terminal.render(self.surface, (20, SCREEN_HEIGHT - 50))
-        self.crt_filter.render(self.surface)
-        pygame.display.flip()
+        self.screen.fill(BG_COLOR)
+        self.terminal.render(self.screen, (20, SCREEN_HEIGHT - 50))
+        # self.crt_filter.render(self.screen)
+        # pygame.display.flip()

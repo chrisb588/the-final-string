@@ -11,13 +11,13 @@ pythonpath = os.environ.get('PYTHONPATH')
 if pythonpath and pythonpath not in sys.path:
     sys.path.insert(0, pythonpath)
 
-from menu_substates.base_menu_state import BaseMenuState
+from .base_menu_state import BaseMenuState
 from constants import *
 import pygame
 
 class CreditsState(BaseMenuState):
-    def __init__(self, screen, terminal, crt_filter):
-        super().__init__(screen, terminal, crt_filter)
+    def __init__(self, screen, terminal):
+        super().__init__(screen, terminal)
         self.credits_lines = []
         self.current_page = 0
         self.lines_per_page = 15
@@ -75,7 +75,7 @@ class CreditsState(BaseMenuState):
         self.terminal.add_line("Press ESC to go back to main menu")
             
     def render(self):
-        self.surface.fill(BG_COLOR)
-        self.terminal.render(self.surface, (20, SCREEN_HEIGHT - 50))
-        self.crt_filter.render(self.surface)
-        pygame.display.flip()
+        self.screen.fill(BG_COLOR)
+        self.terminal.render(self.screen, (20, SCREEN_HEIGHT - 50))
+        # self.crt_filter.render(self.screen)
+        # pygame.display.flip()

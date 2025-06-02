@@ -15,8 +15,8 @@ from constants import *
 import pygame
 
 class SettingsState(BaseMenuState):
-    def __init__(self, screen, terminal, crt_filter):
-        super().__init__(screen, terminal, crt_filter)
+    def __init__(self, screen, terminal):
+        super().__init__(screen, terminal)
         self.selected_item = 0
         
     def handle_event(self, event):
@@ -32,7 +32,7 @@ class SettingsState(BaseMenuState):
         self.terminal.add_line("Press Esc to go back to main menu")
             
     def render(self):
-        self.surface.fill(BG_COLOR)
-        self.terminal.render(self.surface, (20, SCREEN_HEIGHT - 50))
-        self.crt_filter.render(self.surface)
-        pygame.display.flip()
+        self.screen.fill(BG_COLOR)
+        self.terminal.render(self.screen, (20, SCREEN_HEIGHT - 50))
+        # self.crt_filter.render(self.screen)
+        # pygame.display.flip()

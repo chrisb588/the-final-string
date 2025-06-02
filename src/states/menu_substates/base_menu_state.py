@@ -14,11 +14,11 @@ import pygame
 from constants import *
 
 class BaseMenuState:
-    def __init__(self, screen, terminal, crt_filter):
+    def __init__(self, screen, terminal):
         self.screen = screen
         self.terminal = terminal
-        self.crt_filter = crt_filter
-        self.surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # self.crt_filter = crt_filter
+        # self.surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
         
     def enter(self):
         """Called when entering this state"""
