@@ -50,11 +50,11 @@ class PasswordRuleManager:
             "Your password must contain a string in the language defined by the regular expression (a*(ab | bb)*) over the alphabet {a,b}.",
             "Include a base64-encoded version of the word 'Dulaca'.",
             "Your password must contain a valid color hex code.",
-            "Your password must have the year that Filipino tennis player Alex Eala debuted in professional tennis. The year must be written in base 2 format.",
+            "Your password must have the year that Filipino tennis player Alex Eala debuted in professional tennis.",
             "The length of your password must be a prime number.",
             "Your password must contain the answer to this question 'Complete the line from one of Sabrina Carpenter's songs: 'You fit every stereotype, \"___\"'.",
             "Your password must contain the answer to this question 'Are nondeterministic finite automata more powerful than their equivalent deterministic finite automata?'",
-            "The sum of the numbers of your password must be a multiple of 14.",
+            "The sum of the digits of your password must be a multiple of 14.",
             "The sum of the roman numerals of your password must be a multiple of 21 (only uppercase letters count for roman numerals).",
             "Your password must include an answer to a riddle. The riddle is: What has keys but can't open locks?",
             "Your password must mention a fruit, but only one that contains potassium and is featured in Mario Kart.",
@@ -64,6 +64,13 @@ class PasswordRuleManager:
             "Your password must contain one of the names of the people who made this game.",
             "Your password must contain the title of this game in reverse order. (answer: 'gnirtS laniF ehT')",
             "Your password must contain the answer to this question: 'What Hollywood star joined the list of 19 EGOT winners with their delayed win in the Grammys in 1994?'"
+            "Your password must include a legal move in standard chess notation.",
+            "Your password must contain its own length as a number.",
+            "Your password must include the current time.",
+            "Your password must contain the currency symbol used in Japan.",
+            "Your password must include today's day of the week.",
+            "Your password must include the number of the current month.",
+            "Your password must include the name of a planet."
         ]
         
         # Cache for performance optimization
@@ -387,9 +394,9 @@ class PasswordRuleManager:
             hex_pattern = r'#[0-9A-Fa-f]{6}'
             return bool(re.search(hex_pattern, password))
         
-        # Alex Eala debut year in base 2 format
-        elif "alex eala debuted" in rule_lower and "base 2 format" in rule_lower:
-            return "11111100100" in password  # 2020 in binary
+        # Alex Eala debut year (2020)
+        elif "alex eala debuted" in rule_lower:
+            return "2020" in password  # 2020 in decimal format
         
         # The length of your password must be a prime number
         elif "length of your password must be a prime number" in rule_lower:
@@ -403,13 +410,10 @@ class PasswordRuleManager:
         elif "nondeterministic finite automata more powerful" in rule_lower:
             return "no" in password.lower()
         
-        # The sum of the numbers of your password must be a multiple of 14
-        elif "sum of the numbers of your password must be a multiple of 14" in rule_lower:
-            numbers = re.findall(r'\d+', password)
-            if not numbers:
-                return False
-            number_sum = sum(int(num) for num in numbers)
-            return number_sum % 14 == 0
+        # The sum of the digits of your password must be a multiple of 14
+        elif "sum of the digits of your password must be a multiple of 14" in rule_lower:
+            digit_sum = sum(int(char) for char in password if char.isdigit())
+            return digit_sum > 0 and digit_sum % 14 == 0
         
         # The sum of the roman numerals must be a multiple of 21
         elif "sum of the roman numerals" in rule_lower and "multiple of 21" in rule_lower:
@@ -451,6 +455,75 @@ class PasswordRuleManager:
         elif "hollywood star" in rule_lower and "egot winners" in rule_lower and "grammys in 1994" in rule_lower:
             password_lower = password.lower()
             return "audrey hepburn" in password_lower or "audrey" in password_lower or "hepburn" in password_lower
+
+        # Legal move in standard chess notation
+        elif "legal move in standard chess notation" in rule_lower:
+            # Check for common chess moves in algebraic notation
+            chess_patterns = [
+                r'[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8][+#]?',  # Standard moves (e.g., Nf3, Bxe5, Qd8+)
+                r'O-O(-O)?[+#]?',  # Castling (O-O or O-O-O)
+                r'[a-h]x[a-h][1-8][+#]?',  # Pawn captures (e.g., exd5)
+                r'[a-h][1-8]=[QRBN][+#]?',  # Pawn promotion (e.g., a8=Q)
+                r'[a-h][1-8]',  # Simple pawn moves (e.g., e4, d5)
+            ]
+            
+            for pattern in chess_patterns:
+                if re.search(pattern, password):
+                    return True
+            
+            # Also check for some common specific moves
+            common_moves = [
+                "e4", "d4", "Nf3", "Nc3", "Bb5", "Be2", "Qd1", "Kg1", "Rf1",
+                "a4", "b4", "c4", "f4", "g4", "h4", "a5", "b5", "c5", "d5", 
+                "e5", "f5", "g5", "h5", "Nbd2", "Nge2", "O-O", "O-O-O"
+            ]
+            return any(move in password for move in common_moves)
+        
+        # Length as a number
+        elif "contain its own length as a number" in rule_lower:
+            return len(password) > 0 and str(len(password)) in password
+        
+        # Current time
+        elif "current time" in rule_lower:
+            now = datetime.datetime.now()
+            # Accept various time formats
+            time_formats = [
+                f"{now.hour}:{now.minute:02d}",  # HH:MM (e.g., "14:30")
+                f"{now.hour}:{now.minute}",      # H:M (e.g., "14:3")
+                f"{now.strftime('%I:%M %p')}",   # 12-hour format (e.g., "2:30 PM")
+                f"{now.strftime('%I:%M%p')}",    # 12-hour no space (e.g., "2:30PM")
+                f"{now.hour}{now.minute:02d}",   # HHMM (e.g., "1430")
+                str(now.hour),                   # Just hour (e.g., "14")
+                str(now.minute)                  # Just minute (e.g., "30")
+            ]
+            return any(time_format in password for time_format in time_formats)
+        
+        # Currency symbol used in Japan
+        elif "currency symbol used in japan" in rule_lower:
+            return any(symbol in password for symbol in ["¥", "￥"])
+        
+        # Today's day of the week
+        elif "today's day of the week" in rule_lower:
+            now = datetime.datetime.now()
+            password_lower = password.lower()
+            day_formats = [
+                now.strftime("%A").lower(),      # Full name (e.g., "monday")
+                now.strftime("%a").lower(),      # Abbreviated (e.g., "mon")
+                now.strftime("%A"),              # Full name proper case
+                now.strftime("%a")               # Abbreviated proper case
+            ]
+            return any(day_format in password_lower for day_format in day_formats)
+        
+        # Current month
+        elif "current month" in rule_lower:
+            now = datetime.datetime.now()
+            return str(now.month) in password
+        
+        # Name of a planet
+        elif "name of a planet" in rule_lower:
+            planets = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]
+            password_lower = password.lower()
+            return any(planet.lower() in password_lower for planet in planets)
         
         # Default case - unknown rule
         return True

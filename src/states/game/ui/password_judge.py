@@ -157,8 +157,14 @@ class PasswordUI:
         self.rules_text.set_ui_manager(self)
         self.rules_text.max_visible_lines = max(1, self.rules_text.rect.height // self.rules_text.line_height)
         self.rules_text.max_scroll = max(0, len(self.rules_text.lines) - self.rules_text.max_visible_lines)
-        if self.rules_text.max_scroll > 0 and len(self.rules_text.lines) > self.rules_text.max_visible_lines:
+        
+        # Only scroll to bottom if we have collected rules, otherwise stay at top
+        if (self.rules_text.max_scroll > 0 and len(self.rules_text.lines) > self.rules_text.max_visible_lines 
+            and len(self.collected_rules) > 0):
              self.rules_text.scroll_to_bottom()
+        else:
+            # Stay at top when no rules are collected yet
+            self.rules_text.scroll_to_top()
 
         # Create password input with preserved password - position it properly within dialog bounds
         # The Y position of input_rect will be determined by the elements above it in the render() method.
@@ -167,7 +173,7 @@ class PasswordUI:
         # So, let's ensure the initial placement in `show` is also consistent with `render` logic.
         
         # Approximate y for input_rect based on new_rules_rect_height for consistency, though render() recalculates.
-        approx_input_label_y = rules_rect_y_position + new_rules_rect_height + 15 # 15 is input_field_y_offset
+        approx_input_label_y = rules_rect_y_position + new_rules_rect_height + 4 # 8 is input_field_y_offset
         approx_input_field_y = approx_input_label_y + self.font.get_height() + 10 # 10 is input_label_to_field_offset
         input_rect = pygame.Rect(self.x + 20, approx_input_field_y, self.width - 40, 35) # 35 is min_height
         self.password_input = EditableText(self.font, input_rect, preserved_password, self)
@@ -178,6 +184,9 @@ class PasswordUI:
         # Update validation immediately if we have a preserved password
         if preserved_password:
             self._update_validation()
+        else:
+            # Even without a preserved password, scroll to first invalid rule on initial display
+            self._scroll_to_first_invalid_rule()
         
     def hide(self):
         """Hide the password UI"""
@@ -302,7 +311,37 @@ class PasswordUI:
             from game_state import game_state
             # Validate against collected rules only
             self.validation_results = game_state.validate_password_against_all_rules(self.password_input.text, self.collected_rules)
+            
+            # Scroll to first invalid rule after validation update
+            self._scroll_to_first_invalid_rule()
     
+    def _scroll_to_first_invalid_rule(self):
+        """Scroll the rules text to show the first rule that isn't satisfied yet"""
+        if not self.rules_text or not self.collected_rules or not hasattr(self, 'rule_line_mapping'):
+            return
+        
+        # Find the first unsatisfied rule
+        first_invalid_rule_index = None
+        for i, rule in enumerate(self.collected_rules):
+            if not self.validation_results.get(rule, False):
+                first_invalid_rule_index = i
+                break
+        
+        # If all rules are satisfied, don't scroll
+        if first_invalid_rule_index is None:
+            return
+        
+        # Find the line number corresponding to this rule
+        target_line = None
+        for line_idx, rule_idx in self.rule_line_mapping.items():
+            if rule_idx == first_invalid_rule_index:
+                target_line = line_idx
+                break
+        
+        # Scroll to the target line if found
+        if target_line is not None:
+            self.rules_text.scroll_to_line(target_line)
+
     def update(self, delta_time: float):
         """Update password UI state"""
         if not self.visible:
@@ -371,7 +410,7 @@ class PasswordUI:
         
         panel_padding = 20
         rules_rect_height = 250 # Consistent with show() method: Reduced from 280 to 250
-        input_field_y_offset = 15  # Reduced from 30 to 15 to move input field higher
+        input_field_y_offset = 4  # Reduced from 15 to 8 to move input field higher and give more room for validate button
         input_label_to_field_offset = 10 # Space between input label and field
         validation_text_y_offset = 10 # Space between input field and validation
         

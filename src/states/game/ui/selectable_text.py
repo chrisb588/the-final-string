@@ -69,8 +69,16 @@ class SelectableText:
         self.scroll_offset = self.max_scroll
     
     def scroll_to_top(self):
-        """Scroll to the top of the content"""
-        self.scroll_offset = 0
+        """Scroll to the top of the content with animation"""
+        self.target_scroll_offset = 0
+
+    def scroll_to_line(self, line_number: int):
+        """Scroll to make a specific line visible at the top of the view"""
+        if 0 <= line_number < len(self.lines):
+            # Ensure the line is within scrollable bounds
+            max_start_line = max(0, len(self.lines) - self.max_visible_lines)
+            target_line = min(line_number, max_start_line)
+            self.target_scroll_offset = target_line
     
     def handle_scroll(self, scroll_direction: int):
         """Handle scroll wheel input"""
@@ -187,10 +195,6 @@ class SelectableText:
     def scroll_to_bottom(self):
         """Scroll to the bottom of the content with animation"""
         self.target_scroll_offset = self.max_scroll
-
-    def scroll_to_top(self):
-        """Scroll to the top of the content with animation"""
-        self.target_scroll_offset = 0
 
     def _clean_text_for_clipboard(self, text: str) -> str:
         """Clean text for clipboard to avoid LF symbols and improve readability"""
