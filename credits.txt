@@ -1,12 +1,14 @@
-ASSETS
-
 Levels
 - Levels are designed and edited using Sprite Fusion 
   Web Editor (https://www.spritefusion.com/)
 
+ASSETS
+
 Tilesets
-- The tileset for Level 0
-- The tileset for Level 1
+- The tileset for Level 0 is taken from ELV Games's (https://elvgames.itch.io/)
+  Fantasy Dreamland Asset Pack on https://elvgames.itch.io/free-fantasy-dreamland-dungeon
+- The tileset for Level 1 is taken from ELV Games's (https://elvgames.itch.io/)
+  Pixelart Farm Game on https://elvgames.itch.io/cellar-tileset-16x16-pixelart
 - The tileset for Levels 2 and 3 is taken from Arex_V's (https://arex-v.itch.io/)
   Damp Dungeons Asset Pack on https://arex-v.itch.io/damp-dungeons
 - The tileset for Level 4 is taken from CupNooble's (https://cupnooble.itch.io/)
@@ -14,8 +16,8 @@ Tilesets
 
 Sprites
 - The sprites for the playable character are modified from a sprite template
- by 
-
+  by ErisEsra()'s (https://erisesra.itch.io/) Character Template Asset Pack on
+  https://erisesra.itch.io/character-templates-pack
 
 Font
 - PixelFont by Reff Pixels (https://reffpixels.itch.io/) 
@@ -36,8 +38,23 @@ BGM
 SFX
 - Interact with Objects:
   Sack Open 3 Sound Effect from Minifantasy - Dungeon SFX Pack
-  by Leohpaz (https://leohpaz.itch.io/) on https://leohpaz.itch.io/minifantasy-dungeon-sfx-pack
+  by Leohpaz (https://leohpaz.itch.io/) 
+  on https://leohpaz.itch.io/minifantasy-dungeon-sfx-pack
 - Interact with NPCS:
   Mhm (var-1) from Male Character Vocal Pack [VOX]
-  by JDSherbert (https://jdsherbert.itch.io/) on https://jdsherbert.itch.io/male-character-vox-pack
+  by JDSherbert (https://jdsherbert.itch.io/) 
+  on https://jdsherbert.itch.io/male-character-vox-pack
+- Main Menu Click Events:
+  Retro Beeep 20 from 200 Free SFX
+  by Kronbits (https://kronbits.itch.io/)
+  on https://kronbits.itch.io/freesfx
+- Gameplay Click Events:
+  Mouse Click Sound by SoundReality
+  on Pixabay (https://pixabay.com/sound-effects/mouse-click-sound-233951/)
+- Invalid Password:
+  Invalid Selection by Beetlemuse (Freesound)
+  on Pixabay (https://pixabay.com/sound-effects/invalid-selection-39351/)
+- Valid Password:
+  New Level by Universfield 
+  on Pixabay (https://pixabay.com/sound-effects/new-level-142995/)
   
