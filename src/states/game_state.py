@@ -198,8 +198,12 @@ class GameDemo:
                 # Dialog and interaction handling
                 if event.key == pygame.K_e:
                     if self.ui_manager.dialogue_box.is_active:
-                        self.click_sfx.play()
-                    if not self.paused:
+                        self.click_sfx.play()  # Play click sound when skipping/exiting dialogue
+                        if self.ui_manager.dialogue_box.is_animating:
+                            self.ui_manager.dialogue_box.skip_animation()  # Skip animation
+                        else:
+                            self.ui_manager.dialogue_box.hide()  # Close dialogue
+                    elif not self.paused:
                         self.interact_with_objects()
                 
                 # Handle pause toggle
