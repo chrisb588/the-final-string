@@ -132,6 +132,10 @@ class GameDemo:
         self.npc_sfx.set_volume(0.3)
         self.click_sfx = pygame.mixer.Sound('assets/audio/game_click.mp3')
         self.click_sfx.set_volume(0.3)
+        self.success_sfx = pygame.mixer.Sound('assets/audio/success.mp3')
+        self.success_sfx.set_volume(0.3)
+        self.invalid_sfx = pygame.mixer.Sound('assets/audio/invalid.mp3')
+        self.invalid_sfx.set_volume(0.3)
         # Removed setup_level_interactables() call since programmable setups are not being used
 
     def toggle_fullscreen(self):
@@ -898,10 +902,12 @@ class GameDemo:
                 self.ui_manager.show_message("There's nothing here.", 2000)
                 
         elif interaction_type == "door_locked":
+            self.click_sfx.play()
             self.ui_manager.show_message(message or "Door is locked.", 3000)
                 
         elif interaction_type == "door_password_prompt":
             # Show password UI with preserved password if available
+            self.click_sfx.play()
             rules = result.get("rules", [])
             collected_rules = result.get("collected_rules", [])
             door = result.get("door")
@@ -938,6 +944,7 @@ class GameDemo:
         print(f"DEBUG: Password result received: {result}")
         
         if result.get("success", False):
+            self.success_sfx.play() 
             print(f"DEBUG: Password was successful!")
             
             # Check if we just completed level-4 - if so, trigger game completion
@@ -988,6 +995,7 @@ class GameDemo:
                 # For non-transition results (like door_opened), just hide the UI
                 self.ui_manager.password_ui.hide()
         else:
+            self.invalid_sfx.play()
             print(f"DEBUG: Password was not successful")
             # Show error as popup instead of message
             message = result.get("message", "Your password is invalid.")
