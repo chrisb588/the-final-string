@@ -1034,10 +1034,6 @@ class PasswordUI:
             elif event.key == pygame.K_RETURN:
                 self._submit_password()
                 return True
-            elif event.mod & pygame.KMOD_CTRL and event.key == pygame.K_c:
-                # Copy from rules text if it has selection
-                if self.rules_text and self.rules_text.copy_selection():
-                    return True
             # Handle keyboard scrolling for rules text (when password input is not focused)
             elif not (self.password_input and self.password_input.focused):
                 if event.key == pygame.K_UP:

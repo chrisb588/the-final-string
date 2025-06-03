@@ -33,45 +33,45 @@ class GameDemo:
             self.is_fullscreen = False
             self.user_screen_width = self.screen_width
             self.user_screen_height = self.screen_height
+            self.windowed_size = (self.screen_width, self.screen_height)  # Set windowed_size for provided screen
         else:
             # Create our own screen (for standalone execution)
             display_info = pygame.display.Info()
             self.user_screen_width = display_info.current_w
             self.user_screen_height = display_info.current_h
-            
-            # Screen settings
             self.screen_width = self.user_screen_width
             self.screen_height = self.user_screen_height
-            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
             self.is_fullscreen = True
-
-        self.pygame_surface = pygame.Surface((self.user_screen_width, self.user_screen_height))
-        pygame.display.set_caption("Layered Tileset Demo")
-
-        self.windowed_size = (1024, 768)
+            
+            self.windowed_size = (1024, 768)
+            # Create our own full screen
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
         
-        # Game settings
-        self.fps = 60
-        self.clock = pygame.time.Clock()
-
-        # Debug and control flags
-        self.show_debug = False
-        self.smooth_camera = True
+        pygame.display.set_caption("The Final String")
+        
+        # Game state
+        self.running = True
+        self.game_completed = False  # Flag to track if level-4 is completed
         self.paused = False
+        self.clock = pygame.time.Clock()
+        self.fps = 60  # Target FPS for game loop
+        self.dt = 0.0
+        
+        # Debug and creation mode variables
+        self.show_debug = False
         self.show_speed_debug = False
-        self.show_coordinates = False
+        self.show_coordinates = False  # Debug coordinate display
+        self.smooth_camera = True  # Camera smoothing setting
+        self.creation_mode = False
+        self.creation_type = "note"  # "note", "door"
+        self.delete_mode = False
+        self.selected_tiles = set()  # Track selected tiles for multi-tile interactables
         
         # Mouse tracking for debug coordinates
         self.mouse_x = 0
         self.mouse_y = 0
         self.mouse_tile_x = 0
         self.mouse_tile_y = 0
-        
-        # Interactable creation mode
-        self.creation_mode = False
-        self.selected_tiles = set()  # Store selected tile coordinates
-        self.creation_type = "note"  # "note" or "door" - what type to create
-        self.delete_mode = False  # Whether we're in delete mode
         
         # Initialize level manager with layered rendering
         self.level_manager = LayeredLevelManager(
@@ -104,6 +104,7 @@ class GameDemo:
         
         self.ui_manager = UIManager(self.screen)
         
+        # Set initial debug flags for UI manager
         self.ui_manager.set_debug_flags(
             show_debug=self.show_debug,
             show_coordinates=self.show_coordinates,
@@ -154,6 +155,12 @@ class GameDemo:
             if event.type == pygame.QUIT:
                 return False
             
+            elif event.type == pygame.USEREVENT + 1:
+                # Custom event triggered when level-4 is completed
+                print("Game completion timer triggered - exiting to end video...")
+                self.game_completed = True
+                return False  # Exit the game loop
+            
             elif event.type == pygame.VIDEORESIZE:
                 # Handle window resize
                 self.handle_resize(event.w, event.h)
@@ -180,7 +187,8 @@ class GameDemo:
                     # Space only pauses if password UI is not visible
                     if not self.ui_manager.password_ui.visible:
                         self.paused = not self.paused
-                    continue
+                        continue
+                    # If password UI is visible, don't consume the event - let it reach the UI
             
             # Let password UI handle events first
             if self.ui_manager.handle_event(event):
@@ -196,23 +204,23 @@ class GameDemo:
                     self._handle_mouse_click(event.pos)
             
             elif event.type == pygame.KEYDOWN:
-                # Level navigation
-                if event.key == pygame.K_n or event.key == pygame.K_RIGHT:
+                # Level navigation (only when coordinates debug is enabled)
+                if (event.key == pygame.K_n or event.key == pygame.K_RIGHT) and self.ui_manager.hud.show_coordinates:
                     if self.level_manager.load_next_level():
                         # Move player to starting point of new level
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
                 
-                elif event.key == pygame.K_p or event.key == pygame.K_LEFT:
+                elif (event.key == pygame.K_p or event.key == pygame.K_LEFT) and self.ui_manager.hud.show_coordinates:
                     if self.level_manager.load_previous_level():
                         # Move player to starting point of new level
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
                 
-                elif event.key == pygame.K_r:
-                    # Reload current level
+                elif event.key == pygame.K_r and self.ui_manager.hud.show_coordinates:
+                    # Reload current level (only when coordinates debug is enabled)
                     current_name = self.level_manager.current_level_name
                     if current_name:
                         if self.level_manager.load_level(current_name):
@@ -310,8 +318,8 @@ class GameDemo:
                     if not self.paused:
                         self.interact_with_objects()
                 
-                elif event.key == pygame.K_c:
-                    # Clear rules for testing
+                elif event.key == pygame.K_c and self.ui_manager.hud.show_coordinates:
+                    # Clear rules for testing (only when coordinates debug is enabled)
                     game_state.clear_rules_for_testing()
                     self.ui_manager.show_message("Rules cleared for testing!", 2000)
                 
@@ -968,8 +976,28 @@ class GameDemo:
     
     def handle_password_result(self, result: Dict[str, Any]):
         """Handle password attempt results"""
+        print(f"DEBUG: Password result received: {result}")
+        
         if result.get("success", False):
+            print(f"DEBUG: Password was successful!")
+            
+            # Check if we just completed level-4 - if so, trigger game completion
+            # This should happen for any successful password in level-4, regardless of result type
+            current_level = self.level_manager.current_level_name
+            print(f"DEBUG: Current level: '{current_level}', Result type: '{result.get('type')}'")
+            
+            if current_level == "level-4":
+                print("Level-4 completed! Triggering game completion...")
+                self.ui_manager.show_popup("Congratulations! You have completed the game!", 3000)
+                
+                # Set a flag to exit the game after a brief delay
+                pygame.time.set_timer(pygame.USEREVENT + 1, 3000)  # Exit after 3 seconds
+                self.ui_manager.password_ui.hide()
+                return
+            
+            # Handle level transitions for other levels
             if result.get("type") == "level_transition":
+                print(f"DEBUG: Result type is level_transition")
                 next_level = result.get("next_level")
                 
                 # Store successful password
@@ -983,8 +1011,7 @@ class GameDemo:
                         self.accumulated_rules.append(rule)
                         print(f"Accumulated rule: {rule}")
                 
-                # Extract current level number from level name
-                current_level = self.level_manager.current_level_name
+                # Extract current level number from level name for display
                 level_num = ''.join(filter(str.isdigit, current_level))
                 next_num = str(int(level_num) + 1) if level_num else ""
                 
@@ -997,7 +1024,12 @@ class GameDemo:
                     self.transition_to_level(next_level)
 
                 self.ui_manager.password_ui.hide()
+            else:
+                print(f"DEBUG: Result type is not level_transition, it's: {result.get('type')}")
+                # For non-transition results (like door_opened), just hide the UI
+                self.ui_manager.password_ui.hide()
         else:
+            print(f"DEBUG: Password was not successful")
             # Show error as popup instead of message
             message = result.get("message", "Your password is invalid.")
             self.ui_manager.show_popup(message, 2000)
@@ -1398,8 +1430,8 @@ class GameDemo:
                 f"Sprites: {level_info.get('visible_sprites', 0)}/{level_info.get('total_sprites', 0)}"
             )
         
-        pygame.quit()
-        sys.exit()
+        # Don't call pygame.quit() or sys.exit() - let control return to main.py
+        print("DEBUG: GameDemo.run() exiting normally, returning control to main.py")
 
 def main():
     """Entry point"""

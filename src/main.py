@@ -172,9 +172,14 @@ class Game:
         # Let GameDemo run its own complete game loop
         game_demo.run()
         
-        # When GameDemo exits, return to menu (screen stays the same)
-        print("GameDemo exited, returning to main menu...")
-        self.current_state = 'menu'
+        # Check if the game was completed (level-4 finished)
+        if hasattr(game_demo, 'game_completed') and game_demo.game_completed:
+            print("Game completed! Transitioning to end video...")
+            self.change_state('end')  # Use change_state to properly load the video
+        else:
+            # When GameDemo exits normally, return to menu (screen stays the same)
+            print("GameDemo exited, returning to main menu...")
+            self.change_state('menu')  # Use change_state for consistency
 
     def run(self):
         # Enter initial state
@@ -252,17 +257,13 @@ class Game:
             if new_state == 'prelude':
                 try:
                     self.vid1 = Video('assets/video/cutscenes/prelude.mp4')
-                    print("Prelude video loaded successfully")
                 except Exception as e:
-                    print(f"Could not load prelude video: {e}")
                     # If video fails to load, skip to game
                     new_state = 'game'
             elif new_state == 'end':
                 try:
                     self.vid2 = Video('assets/video/cutscenes/epilogue.mp4')
-                    print("Epilogue video loaded successfully")
                 except Exception as e:
-                    print(f"Could not load epilogue video: {e}")
                     # If video fails to load, skip to menu
                     new_state = 'menu'
             elif self.current_state == 'prelude':

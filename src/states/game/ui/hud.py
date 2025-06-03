@@ -115,8 +115,8 @@ class HUD:
             if zoom is not None:
                 self.draw_zoom_indicator(zoom)
             
-            # Draw instructions (always visible)
-            self.draw_instructions()
+            # Draw instructions (always visible) - COMMENTED OUT to remove from screen
+            # self.draw_instructions()
             
         except Exception as e:
             print(f"Error rendering HUD: {e}")
