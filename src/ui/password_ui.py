@@ -1112,7 +1112,7 @@ class PasswordUI:
             import os
             # Add the src directory to the path so we can import game_state
             sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            from game_state import game_state
+            from rules import game_state
             # Validate against collected rules only
             self.validation_results = game_state.validate_password_against_all_rules(self.password_input.text, self.collected_rules)
     

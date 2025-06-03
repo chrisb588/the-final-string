@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Callable, List, Set, Tuple
 
 # Add the src directory to the path so we can import game_state
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from game_state import game_state
+from rules import game_state
 
 class Interactable:
     """Base class for interactable objects"""
