@@ -16,7 +16,7 @@ class Game:
         self.is_fullscreen = False
         self.windowed_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
         
-        # Initialize single screen
+        # Initialize single screen without OpenGL
         self.screen = pygame.display.set_mode(self.windowed_size, DOUBLEBUF)
         pygame.display.set_caption("The Final String")
         
@@ -38,6 +38,19 @@ class Game:
         self.vid2 = None  # Initialize video as None - load when needed
         self.skip_font = pygame.font.Font(FONT_PATH, 24)
 
+    def apply_scanline_effect(self, surface):
+        """Apply a simple scanline effect using pure Pygame"""
+        # Create a surface for the scanlines
+        scanline_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        scanline_surface.set_alpha(30)  # Make it semi-transparent
+        
+        # Draw horizontal lines every 2 pixels for scanline effect
+        for y in range(0, SCREEN_HEIGHT, 2):
+            pygame.draw.line(scanline_surface, (0, 0, 0), (0, y), (SCREEN_WIDTH, y))
+        
+        # Blit the scanline overlay onto the main surface
+        surface.blit(scanline_surface, (0, 0))
+
     def toggle_fullscreen(self):
         """Toggle between fullscreen and windowed mode"""
         self.is_fullscreen = not self.is_fullscreen
@@ -56,9 +69,9 @@ class Game:
     def render_frame(self):
         """Handle the complete rendering pipeline"""
         if self.current_state == 'prelude':
-            # Handle prelude video
+            # Handle prelude video - no effects for videos
             if self.vid1 and self.vid1.active:
-                # Fill screen with black first
+                # Clear the screen
                 self.screen.fill((0, 0, 0))
                 
                 # Get video dimensions
@@ -98,7 +111,10 @@ class Game:
                 skip_text = self.skip_font.render("Press SPACE to skip", True, (200, 200, 200))
                 skip_rect = skip_text.get_rect(bottomright=(SCREEN_WIDTH - 20, SCREEN_HEIGHT - 20))
                 self.screen.blit(skip_text, skip_rect)
+                
+                # Use regular pygame display update for videos
                 pygame.display.flip()
+                
                 # Check if video ended naturally
                 if not self.vid1.active:
                     self.change_state('game')
@@ -106,9 +122,9 @@ class Game:
                 # Video failed to load or ended, go to game
                 self.change_state('game')
         elif self.current_state == 'end':
-            # Handle end video
+            # Handle end video - also no effects
             if self.vid2 and self.vid2.active:
-                # Fill screen with black first
+                # Clear the screen
                 self.screen.fill((0, 0, 0))
                 
                 # Get video dimensions
@@ -148,7 +164,10 @@ class Game:
                 skip_text = self.skip_font.render("Press SPACE to skip", True, (200, 200, 200))
                 skip_rect = skip_text.get_rect(bottomright=(SCREEN_WIDTH - 20, SCREEN_HEIGHT - 20))
                 self.screen.blit(skip_text, skip_rect)
+                
+                # Use regular pygame display update for videos
                 pygame.display.flip()
+                
                 # Check if video ended naturally
                 if not self.vid2.active:
                     self.change_state('menu')
@@ -160,6 +179,11 @@ class Game:
             self.screen.fill((0, 0, 0))
             if self.current_state in self.states and hasattr(self.states[self.current_state], 'render'):
                 self.states[self.current_state].render()
+            
+            # Apply simple scanline effect ONLY for menu state
+            if self.current_state == 'menu':
+                self.apply_scanline_effect(self.screen)
+            
             pygame.display.flip()
 
     def run_game_state(self):
@@ -258,12 +282,14 @@ class Game:
                 try:
                     self.vid1 = Video('assets/video/cutscenes/prelude.mp4')
                 except Exception as e:
+                    print(f"Failed to load prelude video: {e}")
                     # If video fails to load, skip to game
                     new_state = 'game'
             elif new_state == 'end':
                 try:
                     self.vid2 = Video('assets/video/cutscenes/epilogue.mp4')
                 except Exception as e:
+                    print(f"Failed to load end video: {e}")
                     # If video fails to load, skip to menu
                     new_state = 'menu'
             elif self.current_state == 'prelude':
@@ -278,7 +304,7 @@ class Game:
             self.current_state = new_state
             
             # Only call enter for non-game states (game state handles its own initialization)
-            if new_state != 'game' and hasattr(self.states[self.current_state], 'enter'):
+            if new_state != 'game' and new_state in self.states and hasattr(self.states[self.current_state], 'enter'):
                 self.states[self.current_state].enter()
 
 if __name__ == "__main__":

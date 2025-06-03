@@ -21,6 +21,7 @@ class MenuOptionsState(BaseMenuState):
         self.transitioning = False
         self.transition_start = 0
         self.transition_delay = 5000  # 5 seconds in milliseconds
+        self.title_font = pygame.font.Font(FONT_PATH, MENU_FONT_SIZE) # Create font for title
         
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -44,12 +45,26 @@ class MenuOptionsState(BaseMenuState):
         for stage in LOADING_STAGES:
             self.terminal.add_line(stage[0], animate_dots=False)
             
-        # Add title with yellow color for "The Final String"
-        self.terminal.add_line("")
-        self.terminal.add_line(TITLE, color={
-            "The Final String:": TERMINAL_YELLOW
-        })
-        self.terminal.add_line("")
+        # Define title lines
+        title_line1 = "The Final String:"
+        title_line2 = "Win By Making Better Passwords"
+
+        # Add title lines
+        self.terminal.add_line("") # Spacer
+        self.terminal.add_line(
+            title_line1, 
+            color=TERMINAL_YELLOW, # Use yellow for the main part of the title
+            font=self.title_font, 
+            center=True
+        )
+        self.terminal.add_line("") # <<<<< Added this line for extra space
+        self.terminal.add_line(
+            title_line2,
+            color=TERMINAL_GREEN, # Default terminal green for the subtitle
+            # font=self.terminal.font, # Implicitly uses default terminal font if not specified
+            center=True
+        )
+        self.terminal.add_line("") # Spacer
             
         self.terminal.add_line("Created by: " + ", ".join(CREATORS))
         self.terminal.add_line("")
@@ -112,6 +127,6 @@ class MenuOptionsState(BaseMenuState):
             
     def render(self):
         self.screen.fill(BG_COLOR)
-        self.terminal.render(self.screen, (20, SCREEN_HEIGHT - 50))
+        self.terminal.render(self.screen, (20, SCREEN_HEIGHT - 250))
         # self.crt_filter.render(self.screen)
         # pygame.display.flip()

@@ -95,7 +95,7 @@ STATE_GAME = 2
 
 # Menu configuration
 MENU_ITEMS = ["Play", "How To Play", "Settings", "Credits", "Exit"]
-CREATORS = ["[name1]", "[name2]", "[name3]", "[name4]"]
+CREATORS = ["[Bisuela]", "[Brillos]", "[Cadampog]", "[Cutamora]"]
 TITLE = "The Final String: Win By Making Better Passwords"
 CONTROLS_TEXT = "Press 'W' or Up Arrow to move up, 'S' or Down Arrow to move down"
 
