@@ -5,17 +5,39 @@ Levels
   Web Editor (https://www.spritefusion.com/)
 
 Tilesets
+- The tileset for Level 0
 - The tileset for Level 1
-- The tileset for Level 2
-- The tileset for Level 3 is taken from Arex_V's (https://arex-v.itch.io/)
+- The tileset for Levels 2 and 3 is taken from Arex_V's (https://arex-v.itch.io/)
   Damp Dungeons Asset Pack on https://arex-v.itch.io/damp-dungeons
 - The tileset for Level 4 is taken from CupNooble's (https://cupnooble.itch.io/)
   Sprout Lands Asset Pack on https://cupnooble.itch.io/sprout-lands-asset-pack
 
 Sprites
-- The sprites for the playable character are taken from
-- The sprites for the UI interface components are taken from
+- The sprites for the playable character are modified from a sprite template
+ by 
+
 
 Font
 - PixelFont by Reff Pixels (https://reffpixels.itch.io/) 
   on https://reffpixels.itch.io/seriffont
+- UnifontExMono by St. GIGAFONT Typefaces (https://www.fontspace.com/st-gigafont-typefaces)
+  on https://www.fontspace.com/unifontex-font-f26370
+
+BGM
+- Gameplay BGM:
+  "Ocean and Moon", Official Soundtrack for Dark Cloud
+  Composed by Tomohito Nishiura
+  Uploaded to YouTube by Tyvak
+  on https://www.youtube.com/watch?v=EoSo3pfF7NE
+- Main Menu BGM:
+  "computer startup" by squashy555 (Freesound)
+  on Pixabay (https://pixabay.com/sound-effects/computer-startup-6331/)
+
+SFX
+- Interact with Objects:
+  Sack Open 3 Sound Effect from Minifantasy - Dungeon SFX Pack
+  by Leohpaz (https://leohpaz.itch.io/) on https://leohpaz.itch.io/minifantasy-dungeon-sfx-pack
+- Interact with NPCS:
+  Mhm (var-1) from Male Character Vocal Pack [VOX]
+  by JDSherbert (https://jdsherbert.itch.io/) on https://jdsherbert.itch.io/male-character-vox-pack
+  
