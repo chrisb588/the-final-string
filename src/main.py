@@ -276,7 +276,8 @@ class Game:
             if self.current_state in self.states and hasattr(self.states[self.current_state], 'exit'):
                 self.states[self.current_state].exit()
         finally:
-            self.bgm.stop()
+            self.menu_bgm.stop()
+            self.game_bgm.stop()
             pygame.mixer.quit()
             pygame.quit()
             sys.exit()

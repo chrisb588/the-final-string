@@ -27,6 +27,9 @@ class Menu:
         self.screen = surface
         self.terminal = Terminal(pygame.font.Font(FONT_PATH, TERMINAL_FONT_SIZE))
         
+        self.menu_key_sfx = pygame.mixer.Sound('assets/audio/menu_key.wav')
+        self.menu_key_sfx.set_volume(0.3)
+
         # Initialize all states with surface instead of screen
         self.states = {
             STATE_MENU_LOADING: LoadingMenuState(self.screen, self.terminal),
@@ -81,6 +84,10 @@ class Menu:
     def handle_event(self, event):
         """Handle events in the current menu state"""
         if hasattr(self.states[self.current_state], 'handle_event'):
+            # Play key sound for KEYDOWN events except F11
+            if event.type == pygame.KEYDOWN and event.key != pygame.K_F11:
+                self.menu_key_sfx.play()
+                
             next_state = self.states[self.current_state].handle_event(event)
             if next_state == STATE_PRELUDE:
                 return 'prelude'  # Return game state name

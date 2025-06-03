@@ -130,6 +130,8 @@ class GameDemo:
         self.interact_sfx.set_volume(0.3) 
         self.npc_sfx = pygame.mixer.Sound('assets/audio/npc.mp3')
         self.npc_sfx.set_volume(0.3)
+        self.click_sfx = pygame.mixer.Sound('assets/audio/game_click.mp3')
+        self.click_sfx.set_volume(0.3)
         # Removed setup_level_interactables() call since programmable setups are not being used
 
     def toggle_fullscreen(self):
@@ -170,32 +172,7 @@ class GameDemo:
                 # Handle window resize
                 self.handle_resize(event.w, event.h)
             
-            # Handle other UI events
-            ui_handled = False
-
-            # Handle fullscreen toggle before UI events
-            if event.type == pygame.KEYDOWN:
-                if (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or \
-                event.key == pygame.K_F11:
-                    self.toggle_fullscreen()
-                    continue
-                
-                # Handle pause toggle, but check password UI first
-                elif event.key == pygame.K_ESCAPE:
-                    # If password UI is visible, close it instead of pausing
-                    if self.ui_manager.password_ui.visible:
-                        self.ui_manager.password_ui.hide()
-                    else:
-                        self.paused = not self.paused
-                    continue
-                elif event.key == pygame.K_SPACE:
-                    # Space only pauses if password UI is not visible
-                    if not self.ui_manager.password_ui.visible:
-                        self.paused = not self.paused
-                        continue
-                    # If password UI is visible, don't consume the event - let it reach the UI
-            
-            # Let password UI handle events first
+            # Handle UI events first
             if self.ui_manager.handle_event(event):
                 continue
 
@@ -209,27 +186,50 @@ class GameDemo:
                     self._handle_mouse_click(event.pos)
             
             elif event.type == pygame.KEYDOWN:
-                # Level navigation (only when coordinates debug is enabled)
-                if (event.key == pygame.K_n or event.key == pygame.K_RIGHT) and self.ui_manager.hud.show_coordinates:
+                # Handle fullscreen toggle before other keys
+                if (event.key == pygame.K_RETURN and pygame.key.get_mods() & pygame.KMOD_ALT) or event.key == pygame.K_F11:
+                    self.toggle_fullscreen()
+                    continue
+
+                # Dialog and interaction handling
+                if event.key == pygame.K_e:
+                    if self.ui_manager.dialogue_box.is_active:
+                        self.click_sfx.play()
+                    if not self.paused:
+                        self.interact_with_objects()
+                
+                # Handle pause toggle
+                elif event.key == pygame.K_ESCAPE:
+                    if self.ui_manager.password_ui.visible:
+                        self.click_sfx.play()
+                        self.ui_manager.password_ui.hide()
+                    else:
+                        self.click_sfx.play()
+                        self.paused = not self.paused
+                    continue
+                elif event.key == pygame.K_SPACE:
+                    if not self.ui_manager.password_ui.visible:
+                        self.click_sfx.play()
+                        self.paused = not self.paused
+                    continue
+
+                # Level navigation (debug mode)
+                elif (event.key == pygame.K_n or event.key == pygame.K_RIGHT) and self.ui_manager.hud.show_coordinates:
                     if self.level_manager.load_next_level():
-                        # Move player to starting point of new level
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
                 
                 elif (event.key == pygame.K_p or event.key == pygame.K_LEFT) and self.ui_manager.hud.show_coordinates:
                     if self.level_manager.load_previous_level():
-                        # Move player to starting point of new level
                         start_x, start_y = self.level_manager.get_level_starting_point()
                         self.player.set_position(start_x, start_y)
                         self.load_level_interactables()
                 
                 elif event.key == pygame.K_r and self.ui_manager.hud.show_coordinates:
-                    # Reload current level (only when coordinates debug is enabled)
                     current_name = self.level_manager.current_level_name
                     if current_name:
                         if self.level_manager.load_level(current_name):
-                            # Move player to starting point
                             start_x, start_y = self.level_manager.get_level_starting_point()
                             self.player.set_position(start_x, start_y)
                             self.load_level_interactables()
@@ -245,7 +245,6 @@ class GameDemo:
                     self.ui_manager.hud.show_coordinates = not self.ui_manager.hud.show_coordinates
                 
                 elif event.key == pygame.K_F4:
-                    # Toggle creation mode
                     self.creation_mode = not self.creation_mode
                     if not self.creation_mode:
                         self.selected_tiles.clear()
@@ -255,7 +254,6 @@ class GameDemo:
                     )
                 
                 elif event.key == pygame.K_TAB and self.creation_mode:
-                    # Cycle between note, door, and delete modes
                     if self.creation_type == "note":
                         self.creation_type = "door"
                         self.delete_mode = False
@@ -266,101 +264,38 @@ class GameDemo:
                         self.creation_type = "note"
                         self.delete_mode = False
                     
-                    # Clear selection when switching modes
                     self.selected_tiles.clear()
-                    
                     mode_text = "DELETE" if self.delete_mode else self.creation_type.upper()
                     self.ui_manager.show_message(f"Creation mode: {mode_text}", 2000)
                 
                 elif event.key == pygame.K_F5:
                     self.ui_manager.hud.show_speed_debug = not self.ui_manager.hud.show_speed_debug
-                
-                # Speed controls (when speed debug is on)
-                elif event.key == pygame.K_LEFTBRACKET and self.show_speed_debug:
-                    # Decrease speed with [
-                    self.player.adjust_speed(-self.player.speed_increment)
-                    self.ui_manager.show_message(f"Speed: {self.player.speed:.1f}", 1000)
 
-                elif event.key == pygame.K_RIGHTBRACKET and self.show_speed_debug:
-                    # Increase speed with ]
-                    self.player.adjust_speed(self.player.speed_increment)
-                    self.ui_manager.show_message(f"Speed: {self.player.speed:.1f}", 1000)
-
-                elif event.key == pygame.K_BACKSLASH and self.show_speed_debug:
-                    # Reset speed to default with \
-                    self.player.reset_speed()
-                    self.ui_manager.show_message(f"Speed reset to: {self.player.speed:.1f}", 1000)
-                
-                # Zoom controls
-                elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
-                    # Zoom in
-                    self.level_manager.camera.zoom_in()
-                
-                elif event.key == pygame.K_MINUS:
-                    # Zoom out
-                    self.level_manager.camera.zoom_out()
-                
-                elif event.key == pygame.K_0:
-                    # Reset zoom to normal
-                    self.level_manager.camera.set_zoom(1.0)
-                
-                # Layer visibility toggles (for testing)
-                elif event.key == pygame.K_1:
-                    # Toggle ground layer
-                    self._toggle_layer("ground")
-                
-                elif event.key == pygame.K_2:
-                    # Toggle walls layer
-                    self._toggle_layer("walls")
-                
-                elif event.key == pygame.K_3:
-                    # Toggle objects layer
-                    self._toggle_layer("objects-collision")
-                
-                # Interaction
-                elif event.key == pygame.K_e:
-                    # Interact with objects (only if not paused)
-                    if not self.paused:
-                        self.interact_with_objects()
-                
+                # Other debug functions
                 elif event.key == pygame.K_c and self.ui_manager.hud.show_coordinates:
-                    # Clear rules for testing (only when coordinates debug is enabled)
                     game_state.clear_rules_for_testing()
                     self.ui_manager.show_message("Rules cleared for testing!", 2000)
                 
                 elif event.key == pygame.K_i and self.ui_manager.hud.show_coordinates:
-                    # Show programmatic interactables info for current level
                     self._show_interactables_info()
                 
                 elif event.key == pygame.K_x and self.ui_manager.hud.show_coordinates:
-                    # Copy current mouse coordinates to console
                     self._copy_mouse_coordinates()
                 
                 elif event.key == pygame.K_DELETE and self.ui_manager.hud.show_coordinates:
-                    # Clean up duplicate interactables
                     self._clean_duplicate_interactables()
                 
                 elif event.key == pygame.K_z and self.ui_manager.hud.show_coordinates:
-                    # Force reload level from file (useful for testing saved interactables)
                     current_name = self.level_manager.current_level_name
-                    if current_name:
-                        if self.level_manager.load_level(current_name):
-                            self.load_level_interactables()
-                            print(f"Force reloaded level '{current_name}' from file")
-                            self.ui_manager.show_message(f"Reloaded '{current_name}' from file", 2000)
-                        else:
-                            print(f"Failed to reload level '{current_name}' from file")
-                            self.ui_manager.show_message(f"Failed to reload '{current_name}'", 2000)
-                    else:
-                        self.ui_manager.show_message("No level loaded", 2000)
+                    if current_name and self.level_manager.load_level(current_name):
+                        self.load_level_interactables()
                 
                 elif event.key == pygame.K_RETURN and self.creation_mode:
-                    # Create interactable from selected tiles and save to JSON (not in delete mode)
                     if not self.delete_mode:
                         self._create_and_save_interactable()
                     else:
                         self.ui_manager.show_message("Cannot create in delete mode - use TAB to switch modes", 2000)
-        
+
         return True
     
     def handle_resize(self, width: int, height: int):
@@ -999,6 +934,7 @@ class GameDemo:
     
     def handle_password_result(self, result: Dict[str, Any]):
         """Handle password attempt results"""
+        self.click_sfx.play()
         print(f"DEBUG: Password result received: {result}")
         
         if result.get("success", False):
@@ -1423,6 +1359,7 @@ class GameDemo:
     
     def handle_password_ui_close(self, password: str):
         """Handle password UI being closed via X button - save the current password"""
+        self.click_sfx.play()
         if password:
             self.last_successful_password = password
             print(f"Password saved when closing UI: {password}")
