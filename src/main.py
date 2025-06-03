@@ -13,6 +13,7 @@ from pyvidplayer2 import Video
 class Game:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()
         self.is_fullscreen = False
         self.windowed_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
         
@@ -24,6 +25,13 @@ class Game:
         menu = Menu(self.screen)
         prelude = PreludeState(self.screen)
         end = EndState()
+
+        # Load background music
+        self.menu_bgm = pygame.mixer.Sound('assets/audio/menu_bgm.mp3')
+        self.game_bgm = pygame.mixer.Sound('assets/audio/bgm.mp3')
+        self.menu_bgm.set_volume(0.1)
+        self.game_bgm.set_volume(0.1)
+        self.menu_bgm.play(loops=-1)  # Start with menu music 
         
         self.states = {
             'menu': menu,
@@ -182,69 +190,72 @@ class Game:
             self.change_state('menu')  # Use change_state for consistency
 
     def run(self):
-        # Enter initial state
-        if hasattr(self.states[self.current_state], 'enter'):
-            self.states[self.current_state].enter()
+        try:
+            # Enter initial state
+            if hasattr(self.states[self.current_state], 'enter'):
+                self.states[self.current_state].enter()
 
-        while self.running:
-            # Special handling for game state - let GameDemo take over completely
-            if self.current_state == 'game':
-                self.run_game_state()
-                continue  # After game exits, continue with main loop
-            
-            # Handle global events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    continue
-
-                if self.current_state == 'prelude' and event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        if self.vid1:
-                            self.vid1.close()
-                        self.change_state('game')  # Skip to game state
+            while self.running:
+                # Special handling for game state - let GameDemo take over completely
+                if self.current_state == 'game':
+                    self.run_game_state()
+                    continue  # After game exits, continue with main loop
+                
+                # Handle global events
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
                         continue
 
-                if self.current_state == 'end' and event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        if self.vid2:
-                            self.vid2.close()
-                        self.change_state('menu')  # Skip to menu
-                        continue
-                
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_F11:
-                        self.toggle_fullscreen()
-                
-                # Handle other state-specific events (menu, etc.)
-                if self.current_state in self.states and hasattr(self.states[self.current_state], 'handle_event'):
-                    next_state = self.states[self.current_state].handle_event(event)
+                    if self.current_state == 'prelude' and event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            if self.vid1:
+                                self.vid1.close()
+                            self.change_state('game')  # Skip to game state
+                            continue
+
+                    if self.current_state == 'end' and event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            if self.vid2:
+                                self.vid2.close()
+                            self.change_state('menu')  # Skip to menu
+                            continue
+                    
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_F11:
+                            self.toggle_fullscreen()
+                    
+                    # Handle other state-specific events (menu, etc.)
+                    if self.current_state in self.states and hasattr(self.states[self.current_state], 'handle_event'):
+                        next_state = self.states[self.current_state].handle_event(event)
+                        if next_state:
+                            self.change_state(next_state)
+
+                # Update current state
+                if self.current_state in self.states and hasattr(self.states[self.current_state], 'update'):
+                    next_state = self.states[self.current_state].update()
                     if next_state:
                         self.change_state(next_state)
-
-            # Update current state
-            if self.current_state in self.states and hasattr(self.states[self.current_state], 'update'):
-                next_state = self.states[self.current_state].update()
-                if next_state:
-                    self.change_state(next_state)
+                
+                self.render_frame()
+                
+                # Control frame rate for non-game states (game has its own timing)
+                if self.current_state != 'game':
+                    if self.current_state in ['prelude', 'end']:
+                        # For video states, use video timing
+                        pygame.time.wait(16)  # ~60 FPS
+                    else:
+                        # For other states, use normal clock
+                        self.clock.tick(60)
             
-            self.render_frame()
-            
-            # Control frame rate for non-game states (game has its own timing)
-            if self.current_state != 'game':
-                if self.current_state in ['prelude', 'end']:
-                    # For video states, use video timing
-                    pygame.time.wait(16)  # ~60 FPS
-                else:
-                    # For other states, use normal clock
-                    self.clock.tick(60)
-        
-        # Exit final state
-        if self.current_state in self.states and hasattr(self.states[self.current_state], 'exit'):
-            self.states[self.current_state].exit()
-        
-        pygame.quit()
-        sys.exit()
+            # Exit final state
+            if self.current_state in self.states and hasattr(self.states[self.current_state], 'exit'):
+                self.states[self.current_state].exit()
+        finally:
+            self.bgm.stop()
+            pygame.mixer.quit()
+            pygame.quit()
+            sys.exit()
 
     def change_state(self, new_state):
         """Handle state transitions"""
@@ -253,6 +264,17 @@ class Game:
             if self.current_state in self.states and hasattr(self.states[self.current_state], 'exit'):
                 self.states[self.current_state].exit()
             
+            # Handle BGM transitions
+            if new_state == 'menu':
+                self.game_bgm.stop()
+                self.menu_bgm.play(loops=-1)
+            elif new_state == 'game':
+                self.menu_bgm.stop()
+                self.game_bgm.play(loops=-1)
+            elif new_state in ['prelude', 'end']:
+                self.menu_bgm.stop()
+                self.game_bgm.stop()
+
             # Handle video initialization/cleanup
             if new_state == 'prelude':
                 try:

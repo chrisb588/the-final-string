@@ -125,6 +125,11 @@ class GameDemo:
         self.used_rules = set()  # Track rules that have been used in any level
         self.current_level_rules = []  # Rules found in the current level only (resets each level)
         
+
+        self.interact_sfx = pygame.mixer.Sound('assets/audio/interact.wav')
+        self.interact_sfx.set_volume(0.3) 
+        self.npc_sfx = pygame.mixer.Sound('assets/audio/npc.mp3')
+        self.npc_sfx.set_volume(0.3)
         # Removed setup_level_interactables() call since programmable setups are not being used
 
     def toggle_fullscreen(self):
@@ -919,34 +924,47 @@ class GameDemo:
     def handle_interaction(self, result: Dict[str, Any]):
         """Handle interaction results"""
         interaction_type = result.get("type", "none")
+        message = result.get("message", "")
         
+        # Play appropriate sound effect based on interaction type and message content
+        if interaction_type == "note_collected":
+            if ':' in message and "You found a rule:" not in message:  # NPC interaction
+                self.npc_sfx.play()
+            else:  # Regular note/object interaction
+                self.interact_sfx.play()
+        elif interaction_type != "none":  # Other valid interactions
+            self.interact_sfx.play()
+
+        # Handle different types of interactions
         if interaction_type == "note_collected":
             rule = result.get("rule", "")
-            message = result.get("message", "")
             if rule:
                 game_state.add_rule(rule, result.get("note_id"))
-                # Also add to current level rules
+                # Add to current level rules
                 if rule not in self.current_level_rules:
                     self.current_level_rules.append(rule)
                 
-                # Use custom message from NPC if available, otherwise use generic message
-                if message:
+                # Show appropriate message
+                if message and "Rule collected:" not in message:  # NPC message
                     self.ui_manager.show_message(message, 3000)
-                else:
+                else:  # Default rule collection message
                     self.ui_manager.show_message(f"Rule collected: {rule}", 3000)
-            
+                
         elif interaction_type == "note_already_collected":
-            message = result.get("message", "Already read this note.")
-            self.ui_manager.show_message(message, 2000)
-            
+            if ':' in message and "Rule collected:" not in message:  # NPC repeated interaction
+                self.ui_manager.show_message(message, 2000)
+            else:  # Default already collected message
+                self.ui_manager.show_message("Already read this note.", 2000)
+                
         elif interaction_type == "empty_interactable":
-            message = result.get("message", "There's nothing here.")
-            self.ui_manager.show_message(message, 2000)
-            
+            if ':' in message and "Rule collected:" not in message:  # NPC without rule
+                self.ui_manager.show_message(message, 2000)
+            else:  # Default empty message
+                self.ui_manager.show_message("There's nothing here.", 2000)
+                
         elif interaction_type == "door_locked":
-            message = result.get("message", "Door is locked.")
-            self.ui_manager.show_message(message, 3000)
-            
+            self.ui_manager.show_message(message or "Door is locked.", 3000)
+                
         elif interaction_type == "door_password_prompt":
             # Show password UI with preserved password if available
             rules = result.get("rules", [])
@@ -959,17 +977,22 @@ class GameDemo:
                 if rule not in combined_collected_rules:
                     combined_collected_rules.append(rule)
             
-            self.ui_manager.show(rules, door, self.handle_password_result, combined_collected_rules, self.last_successful_password, self.handle_password_ui_close)
-            
+            self.ui_manager.show(
+                rules, 
+                door, 
+                self.handle_password_result, 
+                combined_collected_rules, 
+                self.last_successful_password, 
+                self.handle_password_ui_close
+            )
+                
         elif interaction_type == "door_open":
-            message = result.get("message", "Door is open.")
-            self.ui_manager.show_message(message, 2000)
-            
+            self.ui_manager.show_message(message or "Door is open.", 2000)
+                
         elif interaction_type == "level_transition":
             # Handle level transition
             next_level = result.get("next_level")
-            message = result.get("message", f"Entering {next_level}...")
-            self.messageui.show_message(message, 2000)
+            self.ui_manager.show_message(message or f"Entering {next_level}...", 2000)
             
             if next_level:
                 self.transition_to_level(next_level)
