@@ -31,10 +31,11 @@ class Game:
             'end': end
         }
         
-        self.current_state = 'menu'
+        self.current_state = 'end'
         self.clock = pygame.time.Clock()
         self.running = True
-        self.vid1 = None  # Initialize video as None
+        self.vid1 = Video('assets/video/cutscenes/prelude.mp4')
+        self.vid2 = Video('assets/video/cutscenes/epilogue.mp4')
         self.skip_font = pygame.font.Font(FONT_PATH, 24)
 
     def toggle_fullscreen(self):
@@ -54,10 +55,11 @@ class Game:
 
     def render_frame(self):
         """Handle the complete rendering pipeline"""
-        if self.current_state == 'prelude':
-            # Only render video in prelude state
+        if self.current_state in ['prelude', 'end']:
+            # Render video for both prelude and end states
             pygame.time.wait(16)
-            self.vid1.draw(self.screen, (0,0), force_draw=False)
+            video = self.vid1 if self.current_state == 'prelude' else self.vid2
+            video.draw(self.screen, (0,0), force_draw=False)
             skip_text = self.skip_font.render("Press SPACE to skip", True, (200, 200, 200))
             skip_rect = skip_text.get_rect(bottomright=(SCREEN_WIDTH - 20, SCREEN_HEIGHT - 20))
             self.screen.blit(skip_text, skip_rect)
@@ -85,6 +87,11 @@ class Game:
                     if event.key == pygame.K_SPACE:
                         self.vid1.close()
                         self.change_state('game')  # Skip to game state
+
+                if self.current_state == 'end' and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        self.vid1.close()
+                        self.change_state('menu')  # Skip to game state
                 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F11:
@@ -122,10 +129,16 @@ class Game:
             # Handle video initialization/cleanup
             if new_state == 'prelude':
                 self.vid1 = Video('assets/video/cutscenes/prelude.mp4')
+            elif new_state == 'end':
+                self.vid2 = Video('assets/video/cutscenes/epilogue.mp4')
             elif self.current_state == 'prelude':
                 if self.vid1:
                     self.vid1.close()
                     self.vid1 = None
+            elif self.current_state == 'end':
+                if self.vid2:
+                    self.vid2.close()
+                    self.vid2 = None
             
             self.current_state = new_state
             
